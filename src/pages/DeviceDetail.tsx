@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Activity, ToggleRight, Clock, Zap, Radio, History,
-  BarChart3, Pencil, Check, Settings,
+  BarChart3, Pencil, Check, Settings, ArrowRightLeft
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AppLayout from "@/components/AppLayout";
+import ModbusScanner from "@/components/ModbusScanner";
 
 const CHART_COLORS = [
   "hsl(190, 85%, 50%)", "hsl(265, 70%, 60%)",
@@ -335,6 +336,7 @@ const DeviceDetail = () => {
         <Tabs defaultValue="live" className="space-y-4">
           <TabsList className="bg-muted">
             <TabsTrigger value="live">Live Data</TabsTrigger>
+            <TabsTrigger value="modbus"><ArrowRightLeft size={14} className="mr-1.5" /> RS-485 Modbus</TabsTrigger>
             <TabsTrigger value="charts"><BarChart3 size={14} className="mr-1.5" /> Charts</TabsTrigger>
             <TabsTrigger value="history">History ({events.length})</TabsTrigger>
           </TabsList>
@@ -483,6 +485,10 @@ const DeviceDetail = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="modbus">
+            <ModbusScanner device={device ? { id: device.id, name: device.name, mac_address: device.mac_address } : { id: "", name: "", mac_address: "" }} />
           </TabsContent>
         </Tabs>
       </motion.div>

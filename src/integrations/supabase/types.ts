@@ -248,6 +248,151 @@ export type Database = {
         }
         Relationships: []
       }
+      modbus_devices: {
+        Row: {
+          baud_rate: number
+          created_at: string
+          data_bits: number
+          device_id: string
+          id: string
+          manufacturer: string | null
+          name: string
+          parity: string
+          slave_id: number
+          stop_bits: number
+          updated_at: string
+        }
+        Insert: {
+          baud_rate?: number
+          created_at?: string
+          data_bits?: number
+          device_id: string
+          id?: string
+          manufacturer?: string | null
+          name: string
+          parity?: string
+          slave_id?: number
+          stop_bits?: number
+          updated_at?: string
+        }
+        Update: {
+          baud_rate?: number
+          created_at?: string
+          data_bits?: number
+          device_id?: string
+          id?: string
+          manufacturer?: string | null
+          name?: string
+          parity?: string
+          slave_id?: number
+          stop_bits?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modbus_devices_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "devices"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      modbus_registers: {
+        Row: {
+          address: number
+          created_at: string
+          data_type: string
+          display_order: number
+          function_code: number
+          group_name: string | null
+          id: string
+          label: string
+          modbus_device_id: string
+          scale: number
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          address: number
+          created_at?: string
+          data_type?: string
+          display_order?: number
+          function_code?: number
+          group_name?: string | null
+          id?: string
+          label: string
+          modbus_device_id: string
+          scale?: number
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: number
+          created_at?: string
+          data_type?: string
+          display_order?: number
+          function_code?: number
+          group_name?: string | null
+          id?: string
+          label?: string
+          modbus_device_id?: string
+          scale?: number
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modbus_registers_modbus_device_id_fkey"
+            columns: ["modbus_device_id"]
+            isOneToOne: false
+            referencedRelation: "modbus_devices"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      modbus_readings: {
+        Row: {
+          created_at: string
+          id: string
+          modbus_device_id: string
+          raw_value: string | null
+          register_id: string
+          scaled_value: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          modbus_device_id: string
+          raw_value?: string | null
+          register_id: string
+          scaled_value?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          modbus_device_id?: string
+          raw_value?: string | null
+          register_id?: string
+          scaled_value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modbus_readings_modbus_device_id_fkey"
+            columns: ["modbus_device_id"]
+            isOneToOne: false
+            referencedRelation: "modbus_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "modbus_readings_register_id_fkey"
+            columns: ["register_id"]
+            isOneToOne: false
+            referencedRelation: "modbus_registers"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       notification_preferences: {
         Row: {
           created_at: string
