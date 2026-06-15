@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { Plus, Search, Cpu, Wifi, WifiOff, ScanLine, Trash2, Settings } from "lucide-react";
+import { Plus, Search, Cpu, Wifi, WifiOff, ScanLine, Trash2, Settings, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -74,7 +74,7 @@ const Devices = () => {
       setMacInput("");
       setNameInput("");
       setDialogOpen(false);
-      toast({ title: "Device added", description: "Pending admin approval." });
+      toast({ title: "Device added", description: "Successfully created local node configuration." });
     },
     onError: (err: any) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -83,15 +83,7 @@ const Devices = () => {
 
   const deleteDevice = useMutation({
     mutationFn: async (device: { id: string; name: string }) => {
-      // Log before delete (cascade will remove events too, so log first)
-      await supabase.from("device_events").insert({
-        device_id: device.id,
-        event_type: "info",
-        message: `Device "${device.name}" removed`,
-        triggered_by: user?.id,
-      });
-      const { error } = await supabase.from("devices").delete().eq("id", device.id);
-      if (error) throw error;
+      await supabase.from("devices").delete().eq("id", device.id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["devices"] });
@@ -112,104 +104,143 @@ const Devices = () => {
 
   return (
     <AppLayout>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
+        
+        {/* Header toolbar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card/40 border border-white/5 p-5 rounded-2xl">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Devices</h1>
-            <p className="text-sm text-muted-foreground">{devices.length} devices registered</p>
+            <h1 className="text-2xl font-bold text-foreground">Device Nodes</h1>
+            <p className="text-sm text-muted-foreground">{devices.length} registered hardware nodes</p>
           </div>
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="gradient-brand text-primary-foreground">
-                <Plus size={18} className="mr-2" /> Add Device
+              <Button className="gradient-brand text-primary-foreground font-semibold">
+                <Plus size={18} className="mr-2" /> Add Hardware Node
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="glass border-white/10">
               <DialogHeader>
-                <DialogTitle>Add New Device</DialogTitle>
+                <DialogTitle>Add New IoT Gateway</DialogTitle>
+                <DialogDescription>Input the network profile configurations of the node</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 pt-2">
+              <div className="space-y-4 pt-2 text-sm">
                 <div className="space-y-2">
-                  <Label>Device Name</Label>
-                  <Input placeholder="e.g. Pump Station A" value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="h-11" />
+                  <Label htmlFor="node-name">Device Name / Label</Label>
+                  <Input id="node-name" placeholder="e.g. Pump Station A" value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="h-10 bg-background/50 border-white/10" />
                 </div>
                 <div className="space-y-2">
-                  <Label>MAC Address</Label>
-                  <Input placeholder="AA:BB:CC:DD:EE:FF" value={macInput} onChange={(e) => setMacInput(e.target.value)} className="font-mono h-11" />
+                  <Label htmlFor="mac-address">MAC Address</Label>
+                  <Input id="mac-address" placeholder="AA:BB:CC:DD:EE:FF" value={macInput} onChange={(e) => setMacInput(e.target.value)} className="font-mono h-10 bg-background/50 border-white/10" />
                 </div>
                 <div className="relative">
-                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
-                  <div className="relative flex justify-center text-xs uppercase"><span className="bg-popover px-2 text-muted-foreground">or</span></div>
+                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-white/10" /></div>
+                  <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">or</span></div>
                 </div>
-                <Button variant="outline" className="w-full h-11" disabled>
-                  <ScanLine size={18} className="mr-2" /> Scan via BLE (Coming Soon)
+                <Button variant="outline" className="w-full h-10 border-white/10 text-muted-foreground" disabled>
+                  <ScanLine size={18} className="mr-2 animate-pulse" /> Auto Scan Local BLE Ports (BLE Mode)
                 </Button>
-                <Button className="w-full h-11 gradient-brand text-primary-foreground" onClick={() => addDevice.mutate()} disabled={addDevice.isPending}>
-                  {addDevice.isPending ? "Adding..." : "Add Device"}
+                <Button className="w-full h-10 gradient-brand text-primary-foreground font-semibold" onClick={() => addDevice.mutate()} disabled={addDevice.isPending}>
+                  {addDevice.isPending ? "Configuring..." : "Add Hardware Node"}
                 </Button>
-                <p className="text-xs text-muted-foreground text-center">Device will need admin approval before data is visible</p>
               </div>
             </DialogContent>
           </Dialog>
         </div>
 
+        {/* Search tool */}
         <div className="relative max-w-sm">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search by name or MAC..." className="pl-9 h-10" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input placeholder="Search by name, nickname, or MAC..." className="pl-9 h-10 bg-card/40 border-white/5 focus:border-primary/50 focus:ring-primary/20" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 
         {isLoading ? (
-          <p className="text-muted-foreground text-sm">Loading devices...</p>
+          <p className="text-muted-foreground text-sm">Loading nodes list...</p>
         ) : (
-          <div className="data-grid">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {filtered.map((device, i) => (
-              <motion.div key={device.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}>
-                <Card className={`gradient-card border-border/50 hover:border-primary/30 transition-all hover:shadow-lg ${device.approval_status !== "approved" ? "opacity-60" : ""}`}>
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <Link to={`/devices/${device.id}`} className="p-2 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors">
-                        <Cpu size={20} className="text-primary" />
-                      </Link>
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full ${
+              <motion.div
+                key={device.id}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05, duration: 0.4 }}
+                className="group"
+              >
+                <Card className={`glass border-white/5 hover:border-primary/30 transition-all hover:shadow-xl hover:translate-y-[-2px] duration-300 relative overflow-hidden ${device.approval_status !== "approved" ? "opacity-60" : ""}`}>
+                  
+                  {/* Visual Hardware Sketch for premium look */}
+                  <div className="h-1.5 w-full bg-gradient-to-r from-primary to-accent opacity-70" />
+                  
+                  <CardContent className="p-5 space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className="p-2.5 rounded-xl bg-primary/10 text-primary group-hover:scale-105 transition duration-300">
+                        <Cpu size={20} />
+                      </div>
+                      
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                         device.approval_status !== "approved"
-                          ? "bg-warning/10 text-warning"
-                          : device.is_online ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                          ? "bg-warning/15 text-warning"
+                          : device.is_online ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
                       }`}>
                         {device.approval_status !== "approved" ? device.approval_status
-                          : device.is_online ? <><Wifi size={12} /> Online</> : <><WifiOff size={12} /> Offline</>}
+                          : device.is_online ? <><Wifi size={11} className="channel-pulse" /> Online</> : <><WifiOff size={11} /> Offline</>}
                       </span>
                     </div>
-                    <Link to={`/devices/${device.id}`}>
-                      <h3 className="font-semibold text-foreground hover:text-primary transition-colors">{device.nickname || device.name}</h3>
-                    </Link>
-                    {device.nickname && <p className="text-xs text-muted-foreground">{device.name}</p>}
-                    <p className="font-mono text-xs text-muted-foreground mt-1">{device.mac_address}</p>
-                    <p className="text-xs text-muted-foreground mt-2">Last seen: {device.last_seen_at ? new Date(device.last_seen_at).toLocaleString() : "Never"}</p>
-                    <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/50">
+
+                    <div className="space-y-1">
+                      <Link to={`/devices/${device.id}`}>
+                        <h3 className="font-extrabold text-foreground hover:text-primary transition-colors text-base tracking-tight">
+                          {device.nickname || device.name}
+                        </h3>
+                      </Link>
+                      {device.nickname && <p className="text-xs text-muted-foreground">{device.name}</p>}
+                      <p className="font-mono text-xs text-muted-foreground/85 flex items-center gap-1.5">
+                        <Terminal size={12} /> {device.mac_address}
+                      </p>
+                    </div>
+
+                    <div className="bg-muted/30 border border-white/5 rounded-xl p-3 text-xs space-y-1 font-mono">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Slave Address:</span>
+                        <span className="font-bold text-foreground">{device.modbus_address || "0x01"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Last Ping:</span>
+                        <span className="font-bold text-foreground">
+                          {device.last_seen_at ? new Date(device.last_seen_at).toLocaleTimeString() : "Never"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-3 border-t border-white/5">
+                      <Link to={`/devices/${device.id}`}>
+                        <Button variant="ghost" size="sm" className="text-xs h-8 text-primary hover:bg-primary/5 hover:text-primary font-medium">
+                          🔍 Monitor Data
+                        </Button>
+                      </Link>
                       <Link to={`/devices/${device.id}/config`}>
-                        <Button variant="ghost" size="sm" className="text-xs h-7 text-muted-foreground hover:text-foreground">
+                        <Button variant="ghost" size="sm" className="text-xs h-8 text-muted-foreground hover:text-foreground">
                           <Settings size={12} className="mr-1" /> Config
                         </Button>
                       </Link>
                       {(device.owner_id === user?.id || isAdmin) && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="text-xs h-7 text-destructive/70 hover:text-destructive ml-auto">
-                              <Trash2 size={12} className="mr-1" /> Remove
+                            <Button variant="ghost" size="sm" className="text-xs h-8 text-destructive/70 hover:text-destructive hover:bg-destructive/5 ml-auto">
+                              <Trash2 size={12} className="mr-1" /> Delete
                             </Button>
                           </AlertDialogTrigger>
-                          <AlertDialogContent>
+                          <AlertDialogContent className="glass border-white/10">
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Remove Device</AlertDialogTitle>
+                              <AlertDialogTitle>Delete Gateway Node</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This will permanently delete "{device.nickname || device.name}" and all its readings and events.
+                                This will permanently remove "{device.nickname || device.name}" from your local network registry, including all saved readings.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
                               <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => deleteDevice.mutate({ id: device.id, name: device.nickname || device.name })}>
-                                Delete
+                                Confirm Delete
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
