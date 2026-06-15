@@ -1,0 +1,10 @@
+project_id = "jbbyewxbsbhkkswjkmxl"
+
+[functions.device-data]
+verify_jwt = false
+
+[functions.notify-offline]
+verify_jwt = false
+
+[functions.admin-tools]
+verify_jwt = false
