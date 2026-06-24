@@ -87,6 +87,7 @@ const DeviceDetail = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("live");
 
   // Fetch device
   const { data: device } = useQuery({
@@ -375,7 +376,7 @@ const DeviceDetail = () => {
           )}
         </div>
 
-        <Tabs defaultValue="live" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="bg-muted">
             <TabsTrigger value="live">Live Data</TabsTrigger>
             <TabsTrigger value="modbus"><ArrowRightLeft size={14} className="mr-1.5" /> RS-485 Modbus</TabsTrigger>
@@ -530,7 +531,9 @@ const DeviceDetail = () => {
           </TabsContent>
 
           <TabsContent value="modbus">
-            <ModbusScanner device={device ? { id: device.id, name: device.name, mac_address: device.mac_address } : { id: "", name: "", mac_address: "" }} />
+            {device && (
+              <ModbusScanner device={{ id: device.id, name: device.name, mac_address: device.mac_address }} />
+            )}
           </TabsContent>
         </Tabs>
       </motion.div>
