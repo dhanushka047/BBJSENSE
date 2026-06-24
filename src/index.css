@@ -183,4 +183,22 @@
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1rem;
   }
+
+  @keyframes shine {
+    0% {
+      transform: translateX(-100%) skewX(-12deg);
+    }
+    100% {
+      transform: translateX(200%) skewX(-12deg);
+    }
+  }
+
+  .animate-shine {
+    animation: shine 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+
+  .glow-primary-glow {
+    box-shadow: 0 0 20px rgba(29, 104, 151, 0.15), 0 0 40px rgba(29, 104, 151, 0.1);
+  }
 }
+
