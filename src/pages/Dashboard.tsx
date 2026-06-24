@@ -157,9 +157,9 @@ const Dashboard = () => {
         </div>
 
         {/* Main Grid: Devices List & Quick Diagnostics Panel */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           {/* Recent Devices Card */}
-          <Card className="xl:col-span-2 border-border shadow-md bg-card">
+          <Card className="border-border shadow-md bg-card w-full">
             <CardHeader className="pb-3 border-b border-border/40">
               <div className="flex items-center justify-between">
                 <div>
@@ -203,82 +203,44 @@ const Dashboard = () => {
                         return (
                           <TableRow key={device.id} className="hover:bg-muted/25 transition-colors border-b border-border/40">
                             <TableCell className="py-3.5 px-4 font-semibold text-foreground">
-                              <Link to={`/devices/${device.id}`} className="hover:text-primary transition-colors">
-                                {device.nickname || device.name}
-                              </Link>
-                            </TableCell>
-                            <TableCell className="py-3.5 px-4 font-mono text-xs text-muted-foreground hidden md:table-cell">{device.mac_address}</TableCell>
-                            <TableCell className="py-3.5 px-4">
-                              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-                                device.is_online
-                                  ? "bg-success/15 text-success"
-                                  : "bg-muted text-muted-foreground"
-                              }`}>
-                                <span className={`w-1.5 h-1.5 rounded-full ${device.is_online ? "bg-success channel-pulse" : "bg-muted-foreground"}`} />
-                                {device.is_online ? "online" : "offline"}
-                              </span>
-                            </TableCell>
-                            <TableCell className="py-3.5 px-4 hidden sm:table-cell">
-                              <div className="flex gap-1.5">
-                                {analogValues.map((v: number | null, j: number) => (
-                                  <span key={j} className="font-mono text-xs font-bold bg-primary/10 text-primary border border-primary/15 px-2 py-0.5 rounded-md">
-                                    {(v ?? 0).toFixed(1)}
-                                  </span>
-                                ))}
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-3.5 px-4 text-muted-foreground text-xs hidden lg:table-cell font-mono">
-                              {device.last_seen_at ? new Date(device.last_seen_at).toLocaleTimeString() : "Never"}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                               <Link to={`/devices/${device.id}`} className="hover:text-primary transition-colors">
+                                 {device.nickname || device.name}
+                               </Link>
+                             </TableCell>
+                             <TableCell className="py-3.5 px-4 font-mono text-xs text-muted-foreground hidden md:table-cell">{device.mac_address}</TableCell>
+                             <TableCell className="py-3.5 px-4">
+                               <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                                 device.is_online
+                                   ? "bg-success/15 text-success"
+                                   : "bg-muted text-muted-foreground"
+                               }`}>
+                                 <span className={`w-1.5 h-1.5 rounded-full ${device.is_online ? "bg-success channel-pulse" : "bg-muted-foreground"}`} />
+                                 {device.is_online ? "online" : "offline"}
+                               </span>
+                             </TableCell>
+                             <TableCell className="py-3.5 px-4 hidden sm:table-cell">
+                               <div className="flex gap-1.5">
+                                 {analogValues.map((v: number | null, j: number) => (
+                                   <span key={j} className="font-mono text-xs font-bold bg-primary/10 text-primary border border-primary/15 px-2 py-0.5 rounded-md">
+                                     {(v ?? 0).toFixed(1)}
+                                   </span>
+                                 ))}
+                               </div>
+                             </TableCell>
+                             <TableCell className="py-3.5 px-4 text-muted-foreground text-xs hidden lg:table-cell font-mono">
+                               {device.last_seen_at ? new Date(device.last_seen_at).toLocaleTimeString() : "Never"}
+                             </TableCell>
+                           </TableRow>
+                         );
+                       })}
+                     </TableBody>
+                   </Table>
+                 </div>
+               )}
+             </CardContent>
+           </Card>
+         </div>
 
-          {/* Quick Info & System Health Panel */}
-          <Card className="border-border shadow-md bg-card">
-            <CardHeader className="pb-3 border-b border-border/40">
-              <CardTitle className="text-base flex items-center gap-2"><BarChart3 size={18} className="text-primary" /> Offline Database Setup</CardTitle>
-              <CardDescription>System running on local browser SQLite datastore</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-4 space-y-4 text-xs font-sans">
-              <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl space-y-2">
-                <span className="font-bold text-primary flex items-center gap-1.5"><Database size={13} /> Active Local Engine</span>
-                <p className="text-muted-foreground leading-relaxed">
-                  Supabase database has been completely removed. The app operates locally on in-browser SQLite with data persisted in <code className="bg-background/80 px-1 py-0.5 rounded font-mono text-[10px]">localStorage</code>.
-                </p>
-              </div>
-
-              <div className="space-y-2.5">
-                <span className="font-bold text-foreground block">📈 Device Network Stats</span>
-                <div className="grid grid-cols-2 gap-2 text-center">
-                  <div className="bg-muted/30 border border-border p-2.5 rounded-lg">
-                    <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Online Rate</span>
-                    <span className="text-lg font-bold text-success">
-                      {devices.length > 0 ? `${Math.round((onlineCount / devices.length) * 100)}%` : "0%"}
-                    </span>
-                  </div>
-                  <div className="bg-muted/30 border border-border p-2.5 rounded-lg">
-                    <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Pending Approvals</span>
-                    <span className="text-lg font-bold text-warning">{pendingCount} Nodes</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t border-border/30 pt-3 space-y-2">
-                <span className="font-bold text-foreground block">💻 Quick Terminal Tools</span>
-                <p className="text-muted-foreground">
-                  View and manage system users, backup Snapshots locally as SQLite dumps, or navigate to a device's details to activate RS-485 diagnostics.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
       </motion.div>
     </AppLayout>
