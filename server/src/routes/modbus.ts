@@ -208,15 +208,63 @@ router.get("/registers", authenticateToken, async (req: AuthRequest, res: Respon
   }
 });
 
-// POST /api/modbus/registers - Create register map
+// POST /api/modbus/registers - Create register map (supports single and bulk insert)
 router.post("/registers", authenticateToken, async (req: AuthRequest, res: Response) => {
-  const { modbus_device_id, address, function_code, label, data_type, scale, unit, group_name, display_order } = req.body;
-
-  if (!modbus_device_id || address === undefined || !label) {
-    return res.status(400).json({ error: "modbus_device_id, address, and label are required" });
-  }
-
   try {
+    if (Array.isArray(req.body)) {
+      // Bulk insert
+      const registersData = req.body.map(r => ({
+        modbus_device_id: r.modbus_device_id,
+        address: Number(r.address),
+        function_code: r.function_code !== undefined ? Number(r.function_code) : 3,
+        label: r.label,
+        data_type: r.data_type || "float32_be",
+        scale: r.scale !== undefined ? Number(r.scale) : 1.0,
+        unit: r.unit || "",
+        group_name: r.group_name || "",
+        display_order: r.display_order !== undefined ? Number(r.display_order) : 0,
+      }));
+
+      // Validate each item in the array
+      for (const r of registersData) {
+        if (!r.modbus_device_id || r.address === undefined || !r.label) {
+          return res.status(400).json({ error: "Each register must have modbus_device_id, address, and label" });
+        }
+      }
+
+      // Verify permission for the modbus device
+      const modbusDev = await prisma.modbusDevice.findUnique({
+        where: { id: registersData[0].modbus_device_id },
+        include: { device: true },
+      });
+
+      if (!modbusDev) {
+        return res.status(404).json({ error: "Modbus device not found" });
+      }
+
+      if (
+        req.user?.role !== "super_admin" &&
+        req.user?.role !== "admin" &&
+        modbusDev.device.owner_id !== req.user?.id
+      ) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      // Perform bulk insert
+      await prisma.modbusRegister.createMany({
+        data: registersData,
+      });
+
+      return res.status(201).json({ success: true });
+    }
+
+    // Single insert
+    const { modbus_device_id, address, function_code, label, data_type, scale, unit, group_name, display_order } = req.body;
+
+    if (!modbus_device_id || address === undefined || !label) {
+      return res.status(400).json({ error: "modbus_device_id, address, and label are required" });
+    }
+
     const modbusDev = await prisma.modbusDevice.findUnique({
       where: { id: modbus_device_id },
       include: { device: true },

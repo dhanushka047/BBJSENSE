@@ -430,13 +430,13 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
 
   // Main polling loop
   useEffect(() => {
-    if (!scanning || !connectedPort || registers.length === 0) return;
+    if (!scanning || !connectedPort || !registers || registers.length === 0) return;
 
     let active = true;
     let timerId: any = null;
 
     const runPoll = async () => {
-      const blocks = groupIntoBlocks(registers);
+      const blocks = groupIntoBlocks(registers || []);
       const allReadings: any[] = [];
       const nowTime = new Date().toLocaleTimeString();
 
@@ -798,7 +798,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
                   value={selectedModbusDeviceId}
                   onValueChange={(val) => {
                     setSelectedModbusDeviceId(val);
-                    const dev = modbusDevices.find(d => d.id === val);
+                    const dev = (modbusDevices || []).find(d => d.id === val);
                     if (dev) {
                       setBaudRate(dev.baud_rate);
                       setParity(dev.parity as any);
@@ -813,7 +813,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
                     <SelectValue placeholder="Add a slave profile..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {modbusDevices.map((d) => (
+                    {(modbusDevices || []).map((d) => (
                       <SelectItem key={d.id} value={d.id}>
                         {d.name} (ID: {d.slave_id})
                       </SelectItem>
@@ -922,7 +922,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
                     setScanning(true);
                     addLog("Live RS-485 Modbus scanning loop started.", "success");
                   }}
-                  disabled={!connectedPort || registers.length === 0}
+                  disabled={!connectedPort || !registers || registers.length === 0}
                 >
                   <Play size={13} className="fill-current" /> Start Scan
                 </Button>
@@ -947,7 +947,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
         <TabsContent value="values" className="m-0">
           <Card className="border-border">
             <CardContent className="p-0">
-              {registers.length === 0 ? (
+              {!registers || registers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                   <Cpu size={36} className="text-muted-foreground/40 mb-3" />
                   <p className="text-sm font-semibold">No registers mapped to this device.</p>
