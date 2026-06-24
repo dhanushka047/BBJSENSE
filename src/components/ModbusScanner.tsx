@@ -320,7 +320,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
       let initialData = dataBits;
       let initialSlave = newDeviceSlaveId;
 
-      if (newDevicePreset) {
+      if (newDevicePreset && newDevicePreset !== "custom") {
         const found = PRESET_TEMPLATES.find(p => p.name === newDevicePreset);
         if (found) {
           presetRegs = found.registers;
@@ -850,11 +850,11 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
                   <span className="text-muted-foreground">Template Preset</span>
                   <Select value={newDevicePreset} onValueChange={(val) => {
                     setNewDevicePreset(val);
-                    if (val) setNewDeviceName(val);
+                    if (val && val !== "custom") setNewDeviceName(val);
                   }}>
                     <SelectTrigger className="h-8"><SelectValue placeholder="None" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Custom Setup (Blank)</SelectItem>
+                      <SelectItem value="custom">Custom Setup (Blank)</SelectItem>
                       {PRESET_TEMPLATES.map(p => (
                         <SelectItem key={p.name} value={p.name}>{p.name} ({p.manufacturer})</SelectItem>
                       ))}
