@@ -211,13 +211,14 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
 
   // Automatically select first modbus device on load
   useEffect(() => {
-    if (modbusDevices.length > 0 && !selectedModbusDeviceId) {
-      setSelectedModbusDeviceId(modbusDevices[0].id);
-      setBaudRate(modbusDevices[0].baud_rate);
-      setParity(modbusDevices[0].parity as any);
-      setStopBits(modbusDevices[0].stop_bits as any);
-      setDataBits(modbusDevices[0].data_bits as any);
-      setSlaveId(modbusDevices[0].slave_id);
+    const devices = modbusDevices || [];
+    if (devices.length > 0 && !selectedModbusDeviceId) {
+      setSelectedModbusDeviceId(devices[0].id);
+      setBaudRate(devices[0].baud_rate);
+      setParity(devices[0].parity as any);
+      setStopBits(devices[0].stop_bits as any);
+      setDataBits(devices[0].data_bits as any);
+      setSlaveId(devices[0].slave_id);
     }
   }, [modbusDevices, selectedModbusDeviceId]);
 
@@ -915,7 +916,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
                       toast({ title: "Port Offline", description: "Please connect the serial port first.", variant: "destructive" });
                       return;
                     }
-                    if (registers.length === 0) {
+                    if (!registers || registers.length === 0) {
                       toast({ title: "No Registers", description: "Active device has no registers configured.", variant: "destructive" });
                       return;
                     }
@@ -967,7 +968,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {registers.map((reg) => {
+                    {(registers || []).map((reg) => {
                       const reading = readings.get(reg.id);
                       return (
                         <TableRow key={reg.id} className="hover:bg-muted/10 font-mono text-xs">
