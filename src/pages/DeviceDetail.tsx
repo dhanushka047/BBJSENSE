@@ -286,14 +286,54 @@ const DeviceDetail = () => {
     mutationFn: async (chNum: number) => {
       const current = getDO(chNum);
       const newState = !current;
-      // Insert a new reading with just the DO change (in real app this would go through edge function)
-      await supabase.from("device_events").insert({
+
+      // Construct a new reading record with the updated digital output state
+      const newReading = {
+        device_id: id!,
+        analog_ch1: latestReading?.analog_ch1 ?? 0,
+        analog_ch2: latestReading?.analog_ch2 ?? 0,
+        analog_ch3: latestReading?.analog_ch3 ?? 0,
+        analog_ch4: latestReading?.analog_ch4 ?? 0,
+        analog_ch1_mode: latestReading?.analog_ch1_mode ?? "0-10V",
+        analog_ch2_mode: latestReading?.analog_ch2_mode ?? "0-10V",
+        analog_ch3_mode: latestReading?.analog_ch3_mode ?? "0-10V",
+        analog_ch4_mode: latestReading?.analog_ch4_mode ?? "0-10V",
+        digital_in1: latestReading?.digital_in1 ?? false,
+        digital_in2: latestReading?.digital_in2 ?? false,
+        digital_in3: latestReading?.digital_in3 ?? false,
+        digital_in4: latestReading?.digital_in4 ?? false,
+        digital_out1: latestReading?.digital_out1 ?? false,
+        digital_out2: latestReading?.digital_out2 ?? false,
+        digital_out3: latestReading?.digital_out3 ?? false,
+        digital_out4: latestReading?.digital_out4 ?? false,
+        rtc_time: new Date().toISOString(),
+      };
+
+      // Set the toggled digital output
+      (newReading as any)[`digital_out${chNum}`] = newState;
+
+      // 1. Insert the new reading to update state in the SQLite database
+      const { error: readingError } = await supabase.from("device_readings").insert(newReading);
+      if (readingError) throw readingError;
+
+      // 2. Log the control action in the events log
+      const { error: eventError } = await supabase.from("device_events").insert({
         device_id: id!,
         event_type: "control",
         message: `DO${chNum} turned ${newState ? "ON" : "OFF"}`,
         triggered_by: user?.id,
       });
-      toast({ title: `DO${chNum} ${newState ? "ON" : "OFF"}`, description: "Command will be synced on next device poll." });
+      if (eventError) throw eventError;
+
+      toast({ 
+        title: `DO${chNum} ${newState ? "ON" : "OFF"}`, 
+        description: "Command will be synced on next device poll." 
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["device-latest-reading", id] });
+      queryClient.invalidateQueries({ queryKey: ["device-historical-readings", id] });
+      queryClient.invalidateQueries({ queryKey: ["device-events", id] });
     },
   });
 
