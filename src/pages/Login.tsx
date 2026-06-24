@@ -223,7 +223,7 @@ const Login = () => {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="flex-1 text-xs h-9 bg-background/35 dark:bg-background/10 border-border/40 dark:border-white/5 hover:border-primary/50 hover:bg-background/85 text-foreground transition-all duration-300 rounded-xl flex items-center justify-center gap-1.5 group font-medium shadow-sm"
+                  className="flex-1 text-xs h-9 bg-background/35 dark:bg-background/10 border-border/40 dark:border-white/5 hover:border-primary/50 hover:bg-background/85 hover:text-foreground text-foreground transition-all duration-300 rounded-xl flex items-center justify-center gap-1.5 group font-medium shadow-sm"
                   onClick={() => autofillUser('admin')}
                 >
                   <span className="w-1 h-1 rounded-full bg-primary opacity-40 group-hover:opacity-100 transition-opacity" />
@@ -233,7 +233,7 @@ const Login = () => {
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="flex-1 text-xs h-9 bg-background/35 dark:bg-background/10 border-border/40 dark:border-white/5 hover:border-primary/50 hover:bg-background/85 text-foreground transition-all duration-300 rounded-xl flex items-center justify-center gap-1.5 group font-medium shadow-sm"
+                  className="flex-1 text-xs h-9 bg-background/35 dark:bg-background/10 border-border/40 dark:border-white/5 hover:border-primary/50 hover:bg-background/85 hover:text-foreground text-foreground transition-all duration-300 rounded-xl flex items-center justify-center gap-1.5 group font-medium shadow-sm"
                   onClick={() => autofillUser('user')}
                 >
                   <span className="w-1 h-1 rounded-full bg-success opacity-40 group-hover:opacity-100 transition-opacity" />
