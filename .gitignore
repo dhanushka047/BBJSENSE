@@ -29,6 +29,7 @@ dist-ssr
 *.db-shm
 *.db-wal
 server/prisma/dev.db
+*.sqlite
 .env
 .env.local
 .env.*.local
