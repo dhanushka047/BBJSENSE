@@ -146,7 +146,7 @@ const Settings = () => {
 
   return (
     <AppLayout>
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6 max-w-2xl">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6 w-full">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <Sparkles size={24} className="text-accent animate-pulse" /> Settings
@@ -154,175 +154,227 @@ const Settings = () => {
           <p className="text-sm text-muted-foreground">Manage your profile, alerts, and offline database parameters</p>
         </div>
 
-        {/* Profile */}
-        <Card className="border border-border bg-card shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
-          <CardHeader className="pb-3 border-b border-border/40">
-            <CardTitle className="text-lg flex items-center gap-2"><User size={18} className="text-primary" /> Profile Settings</CardTitle>
-            <CardDescription>Configure your personal identity and industrial plant setup</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 pt-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground">First Name</Label>
-                <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="bg-background border-border" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Last Name</Label>
-                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} className="bg-background border-border" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"><Building2 size={13} /> Factory / Organization</Label>
-              <Input value={factoryName} onChange={(e) => setFactoryName(e.target.value)} placeholder="e.g. Acme Manufacturing" className="bg-background border-border" />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5"><MapPin size={13} /> Location / Facility</Label>
-              <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Building A, Floor 2" className="bg-background border-border" />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Email</Label>
-              <Input value={profile?.email || user?.email || ""} disabled className="opacity-60 bg-background/20 font-mono" />
-            </div>
-            <Button onClick={handleSaveProfile} disabled={saving} className="gap-2 gradient-brand text-primary-foreground font-semibold">
-              <Save size={16} /> {saving ? "Saving…" : "Save Profile"}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* System Branding - Admin & Super Admin Only */}
-        {isAdmin && (
-          <Card className="border border-border bg-card shadow-sm relative overflow-hidden">
-            <CardHeader className="pb-3 border-b border-border/40">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Building2 size={18} className="text-primary" /> System Branding Configuration
-              </CardTitle>
-              <CardDescription>Customize global console title and brand icon for all users</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              <div className="space-y-2">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Site Name</Label>
-                <Input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="e.g. BBJSENSE" className="bg-background border-border font-semibold text-foreground" />
-              </div>
-              
-              <div className="space-y-2.5">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground block">Site Logo Branding</Label>
-                <div className="flex items-center gap-4 p-3 rounded-xl bg-muted/20 border border-border/50">
-                  <div className="h-16 w-16 rounded-lg bg-background border border-border flex items-center justify-center overflow-hidden shrink-0">
-                    <img src={customLogo || "/logo.png"} alt="Preview" className="h-14 w-14 object-contain" onError={(e) => (e.target as HTMLImageElement).src = "/logo.png"} />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {/* Left Column: Profile Settings (all users) and Alert Notifications (only for admins to balance height) */}
+          <div className="space-y-6">
+            {/* Profile */}
+            <Card className="border border-border bg-card shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl pointer-events-none" />
+              <CardHeader className="pb-3 border-b border-border/40">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <User size={18} className="text-primary" /> Profile Settings
+                </CardTitle>
+                <CardDescription>Configure your personal identity and industrial plant setup</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 pt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">First Name</Label>
+                    <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="bg-background border-border" />
                   </div>
-                  <div className="space-y-2 w-full">
-                    <input type="file" accept="image/*" id="logo-file-input" className="hidden" onChange={handleLogoUpload} />
-                    <Label htmlFor="logo-file-input" className="inline-flex h-9 items-center justify-center rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/90 px-4 text-xs font-semibold cursor-pointer border border-border transition-colors">
-                      Upload Logo Image
-                    </Label>
-                    <p className="text-[10px] text-muted-foreground">PNG or JPG, maximum 2MB size. Saved globally.</p>
+                  <div className="space-y-2">
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground">Last Name</Label>
+                    <Input value={lastName} onChange={(e) => setLastName(e.target.value)} className="bg-background border-border" />
                   </div>
                 </div>
-              </div>
-
-              <Button onClick={handleSaveBranding} disabled={savingBranding} className="gap-2 gradient-brand text-primary-foreground font-semibold">
-                <Save size={16} /> {savingBranding ? "Saving branding..." : "Save Branding Settings"}
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Notifications */}
-        <Card className="border border-border bg-card shadow-sm relative overflow-hidden">
-          <CardHeader className="pb-3 border-b border-border/40">
-            <CardTitle className="text-lg flex items-center gap-2"><Bell size={18} className="text-primary" /> Alert Notifications</CardTitle>
-            <CardDescription>Email alert thresholds and sensor limits warnings</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5 pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Device Offline Alerts</p>
-                <p className="text-xs text-muted-foreground">Get notified when a physical gateway goes offline</p>
-              </div>
-              <Switch checked={emailOnOffline} onCheckedChange={setEmailOnOffline} />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Threshold Warning Alerts</p>
-                <p className="text-xs text-muted-foreground">Receive updates when telemetry exceeds range limits</p>
-              </div>
-              <Switch checked={emailOnAlert} onCheckedChange={setEmailOnAlert} />
-            </div>
-            <Button onClick={handleSaveNotifications} disabled={savingPrefs} variant="secondary" className="gap-2 border border-border font-semibold text-foreground hover:bg-muted/80 bg-background">
-              <Save size={16} /> {savingPrefs ? "Saving…" : "Save Alert Settings"}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Admin Tools - Super Admin Only */}
-        {isSuperAdmin && (
-          <Card className="glass border-destructive/20 shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-destructive/5 rounded-full blur-2xl pointer-events-none" />
-            <CardHeader className="pb-3 border-b border-destructive/10 bg-destructive/5">
-              <CardTitle className="text-lg flex items-center gap-2 text-destructive">
-                <AlertTriangle size={18} /> Admin Tools (Local SQLite Engine)
-              </CardTitle>
-              <CardDescription>Super administrator database diagnostics. These operations overwrite state locally.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 pt-4">
-              {/* Seed Dummy Data */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/10">
-                <div>
-                  <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                    <Database size={14} className="text-primary" /> Seed Mock Data
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Clear all current tables and seed default nodes, registers, charts history, and users.
-                  </p>
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Building2 size={13} /> Factory / Organization
+                  </Label>
+                  <Input value={factoryName} onChange={(e) => setFactoryName(e.target.value)} placeholder="e.g. Acme Manufacturing" className="bg-background border-border" />
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleSeedDummyData}
-                  disabled={seeding}
-                  className="gap-1.5 border-primary/20 text-primary hover:bg-primary/10 font-medium"
-                >
-                  <Database size={14} /> {seeding ? "Seeding..." : "Seed Data"}
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <MapPin size={13} /> Location / Facility
+                  </Label>
+                  <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Building A, Floor 2" className="bg-background border-border" />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Email</Label>
+                  <Input value={profile?.email || user?.email || ""} disabled className="opacity-60 bg-background/20 font-mono" />
+                </div>
+                <Button onClick={handleSaveProfile} disabled={saving} className="gap-2 gradient-brand text-primary-foreground font-semibold">
+                  <Save size={16} /> {saving ? "Saving…" : "Save Profile"}
                 </Button>
-              </div>
+              </CardContent>
+            </Card>
 
-              {/* Clear Database */}
-              <div className="flex items-center justify-between p-4 rounded-xl bg-destructive/5 border border-destructive/15">
-                <div>
-                  <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
-                    <Trash2 size={14} className="text-destructive" /> Purge Local Database
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Delete all configured devices, channels, readings, and logs. User sessions persist.
-                  </p>
-                </div>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm" disabled={clearing} className="gap-1.5 font-semibold">
-                      <Trash2 size={14} /> {clearing ? "Clearing..." : "Purge DB"}
+            {/* Notifications Card for Admin (Left Column) */}
+            {isAdmin && (
+              <Card className="border border-border bg-card shadow-sm relative overflow-hidden">
+                <CardHeader className="pb-3 border-b border-border/40">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Bell size={18} className="text-primary" /> Alert Notifications
+                  </CardTitle>
+                  <CardDescription>Email alert thresholds and sensor limits warnings</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5 pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Device Offline Alerts</p>
+                      <p className="text-xs text-muted-foreground">Get notified when a physical gateway goes offline</p>
+                    </div>
+                    <Switch checked={emailOnOffline} onCheckedChange={setEmailOnOffline} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Threshold Warning Alerts</p>
+                      <p className="text-xs text-muted-foreground">Receive updates when telemetry exceeds range limits</p>
+                    </div>
+                    <Switch checked={emailOnAlert} onCheckedChange={setEmailOnAlert} />
+                  </div>
+                  <Button onClick={handleSaveNotifications} disabled={savingPrefs} variant="secondary" className="gap-2 border border-border font-semibold text-foreground hover:bg-muted/80 bg-background">
+                    <Save size={16} /> {savingPrefs ? "Saving…" : "Save Alert Settings"}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Right Column:
+              - If Admin: System Branding and Admin Tools
+              - If Standard User: Alert Notifications (to keep the 2 columns perfectly balanced side-by-side)
+          */}
+          <div className="space-y-6">
+            {isAdmin ? (
+              <>
+                {/* System Branding */}
+                <Card className="border border-border bg-card shadow-sm relative overflow-hidden">
+                  <CardHeader className="pb-3 border-b border-border/40">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Building2 size={18} className="text-primary" /> System Branding Configuration
+                    </CardTitle>
+                    <CardDescription>Customize global console title and brand icon for all users</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground">Site Name</Label>
+                      <Input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="e.g. BBJSENSE" className="bg-background border-border font-semibold text-foreground" />
+                    </div>
+                    
+                    <div className="space-y-2.5">
+                      <Label className="text-xs uppercase tracking-wider text-muted-foreground block">Site Logo Branding</Label>
+                      <div className="flex items-center gap-4 p-3 rounded-xl bg-muted/20 border border-border/50">
+                        <div className="h-16 w-16 rounded-lg bg-background border border-border flex items-center justify-center overflow-hidden shrink-0">
+                          <img src={customLogo || "/logo.png"} alt="Preview" className="h-14 w-14 object-contain" onError={(e) => (e.target as HTMLImageElement).src = "/logo.png"} />
+                        </div>
+                        <div className="space-y-2 w-full">
+                          <input type="file" accept="image/*" id="logo-file-input" className="hidden" onChange={handleLogoUpload} />
+                          <Label htmlFor="logo-file-input" className="inline-flex h-9 items-center justify-center rounded-md bg-secondary text-secondary-foreground hover:bg-secondary/90 px-4 text-xs font-semibold cursor-pointer border border-border transition-colors">
+                            Upload Logo Image
+                          </Label>
+                          <p className="text-[10px] text-muted-foreground">PNG or JPG, maximum 2MB size. Saved globally.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <Button onClick={handleSaveBranding} disabled={savingBranding} className="gap-2 gradient-brand text-primary-foreground font-semibold">
+                      <Save size={16} /> {savingBranding ? "Saving branding..." : "Save Branding Settings"}
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent className="border border-border bg-card shadow-xl">
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="text-foreground">Clear All Database Tables?</AlertDialogTitle>
-                      <AlertDialogDescription className="text-muted-foreground">
-                        This will permanently delete all local devices, metrics readings, alerts, configurations, and snapshots.
-                        Your administrator authentication profile will persist. This action is irreversible.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel className="bg-background text-foreground border-border hover:bg-muted">Cancel</AlertDialogCancel>
-                      <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleClearDatabase}>
-                        Purge All Data
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                  </CardContent>
+                </Card>
+
+                {/* Admin Tools - Super Admin Only */}
+                {isSuperAdmin && (
+                  <Card className="glass border-destructive/20 shadow-lg relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-destructive/5 rounded-full blur-2xl pointer-events-none" />
+                    <CardHeader className="pb-3 border-b border-destructive/10 bg-destructive/5">
+                      <CardTitle className="text-lg flex items-center gap-2 text-destructive">
+                        <AlertTriangle size={18} /> Admin Tools (Local SQLite Engine)
+                      </CardTitle>
+                      <CardDescription>Super administrator database diagnostics. These operations overwrite state locally.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4 pt-4">
+                      {/* Seed Dummy Data */}
+                      <div className="flex items-center justify-between p-4 rounded-xl bg-primary/5 border border-primary/10">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                            <Database size={14} className="text-primary" /> Seed Mock Data
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Clear all current tables and seed default nodes, registers, charts history, and users.
+                          </p>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSeedDummyData}
+                          disabled={seeding}
+                          className="gap-1.5 border-primary/20 text-primary hover:bg-primary/10 font-medium"
+                        >
+                          <Database size={14} /> {seeding ? "Seeding..." : "Seed Data"}
+                        </Button>
+                      </div>
+
+                      {/* Clear Database */}
+                      <div className="flex items-center justify-between p-4 rounded-xl bg-destructive/5 border border-destructive/15">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                            <Trash2 size={14} className="text-destructive" /> Purge Local Database
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Delete all configured devices, channels, readings, and logs. User sessions persist.
+                          </p>
+                        </div>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="sm" disabled={clearing} className="gap-1.5 font-semibold">
+                              <Trash2 size={14} /> {clearing ? "Clearing..." : "Purge DB"}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent className="border border-border bg-card shadow-xl">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle className="text-foreground">Clear All Database Tables?</AlertDialogTitle>
+                              <AlertDialogDescription className="text-muted-foreground">
+                                This will permanently delete all local devices, metrics readings, alerts, configurations, and snapshots.
+                                Your administrator authentication profile will persist. This action is irreversible.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="bg-background text-foreground border-border hover:bg-muted">Cancel</AlertDialogCancel>
+                              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleClearDatabase}>
+                                Purge All Data
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            ) : (
+              /* Notifications Card for Standard User (Right Column to balance the layout side-by-side) */
+              <Card className="border border-border bg-card shadow-sm relative overflow-hidden">
+                <CardHeader className="pb-3 border-b border-border/40">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Bell size={18} className="text-primary" /> Alert Notifications
+                  </CardTitle>
+                  <CardDescription>Email alert thresholds and sensor limits warnings</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5 pt-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Device Offline Alerts</p>
+                      <p className="text-xs text-muted-foreground">Get notified when a physical gateway goes offline</p>
+                    </div>
+                    <Switch checked={emailOnOffline} onCheckedChange={setEmailOnOffline} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Threshold Warning Alerts</p>
+                      <p className="text-xs text-muted-foreground">Receive updates when telemetry exceeds range limits</p>
+                    </div>
+                    <Switch checked={emailOnAlert} onCheckedChange={setEmailOnAlert} />
+                  </div>
+                  <Button onClick={handleSaveNotifications} disabled={savingPrefs} variant="secondary" className="gap-2 border border-border font-semibold text-foreground hover:bg-muted/80 bg-background">
+                    <Save size={16} /> {savingPrefs ? "Saving…" : "Save Alert Settings"}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
       </motion.div>
     </AppLayout>
   );
