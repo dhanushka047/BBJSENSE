@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local databases and environment
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+server/prisma/dev.db
+.env
+.env.local
+.env.*.local
+

@@ -260,6 +260,43 @@ class LocalDatabaseManager {
     }
   }
 
+  clearDatabase() {
+    this.run("DELETE FROM devices");
+    this.run("DELETE FROM device_channel_config");
+    this.run("DELETE FROM device_readings");
+    this.run("DELETE FROM device_events");
+    this.run("DELETE FROM modbus_devices");
+    this.run("DELETE FROM modbus_registers");
+    this.run("DELETE FROM modbus_readings");
+    this.run("DELETE FROM database_snapshots");
+    this.save();
+  }
+
+  seedDatabase() {
+    this.run("DELETE FROM users");
+    this.run("DELETE FROM profiles");
+    this.run("DELETE FROM user_roles");
+    this.run("DELETE FROM notification_preferences");
+    this.clearDatabase();
+    this.seedIfEmpty();
+  }
+
+  getBinary(): Uint8Array {
+    if (!this.dbInstance) throw new Error("Database not ready");
+    return this.dbInstance.export();
+  }
+
+  loadBinary(binary: Uint8Array) {
+    try {
+      const b64 = btoa(String.fromCharCode(...binary));
+      localStorage.setItem(DB_KEY, b64);
+      window.location.reload();
+    } catch (e) {
+      console.error("Failed to load binary database:", e);
+      throw e;
+    }
+  }
+
   private seedIfEmpty() {
     const userCount = this.query("SELECT COUNT(*) as cnt FROM users")[0]?.cnt || 0;
     if (userCount > 0) return;
@@ -292,77 +329,6 @@ class LocalDatabaseManager {
     );
     this.run("INSERT INTO user_roles (id, user_id, role) VALUES (?, ?, ?)", ["role-2", "user-uuid-2222", "user"]);
     this.run("INSERT INTO notification_preferences (id, user_id) VALUES (?, ?)", ["notif-2", "user-uuid-2222"]);
-
-    // Seed Devices
-    const devices = [
-      { id: "dev-uuid-1", mac: "00:1A:2B:3C:4D:5E", name: "IoT Controller Main", nick: "Assembly Line A Controller", owner: "user-uuid-2222", status: "approved", online: 1, modbus: "0x01" },
-      { id: "dev-uuid-2", mac: "00:1A:2B:3C:4D:5F", name: "IoT Controller Auxiliary", nick: "Warehouse Fan Controller", owner: "user-uuid-2222", status: "approved", online: 0, modbus: "0x02" },
-      { id: "dev-uuid-3", mac: "00:1A:2B:3C:4D:60", name: "IoT Temp Sensor", nick: "Chill Room Sensor", owner: "admin-uuid-1111", status: "approved", online: 1, modbus: "0x03" },
-      { id: "dev-uuid-4", mac: "00:1A:2B:3C:4D:61", name: "New IoT Gateway", nick: "Storage Room Gateway", owner: "user-uuid-2222", status: "pending", online: 0, modbus: "0x04" }
-    ];
-
-    for (const d of devices) {
-      this.run(
-        `INSERT INTO devices (id, mac_address, name, nickname, owner_id, approval_status, is_online, modbus_address, last_seen_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, DATETIME('now'))`,
-        [d.id, d.mac, d.name, d.nick, d.owner, d.status, d.online, d.modbus]
-      );
-
-      // Seed channel configurations
-      const channels = [
-        { type: "analog", num: 1, label: "Pressure Sensor", mode: "4-20mA", unit: "bar", min: 0, max: 10 },
-        { type: "analog", num: 2, label: "Flow Rate Sensor", mode: "0-10V", unit: "L/min", min: 0, max: 50 },
-        { type: "analog", num: 3, label: "Humidity", mode: "0-10V", unit: "%RH", min: 0, max: 100 },
-        { type: "analog", num: 4, label: "Voltage Input", mode: "0-10V", unit: "V", min: 0, max: 24 },
-        { type: "digital_in", num: 1, label: "Door Switch A" },
-        { type: "digital_in", num: 2, label: "E-Stop Safety Relay" },
-        { type: "digital_in", num: 3, label: "Piston Limit Switch" },
-        { type: "digital_in", num: 4, label: "Smoke Alarm Trigger" },
-        { type: "digital_out", num: 1, label: "Solenoid Valve Relay" },
-        { type: "digital_out", num: 2, label: "Warning Strobe Siren" },
-        { type: "digital_out", num: 3, label: "Conveyor Belt Motor" },
-        { type: "digital_out", num: 4, label: "Cooling Fan Switch" }
-      ];
-
-      for (const ch of channels) {
-        this.run(
-          `INSERT INTO device_channel_config (id, device_id, channel_type, channel_number, label, data_mode, unit, min_value, max_value)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [`ch-${d.id}-${ch.type}-${ch.num}`, d.id, ch.type, ch.num, ch.label, ch.mode || "0-10V", ch.unit || "", ch.min || 0, ch.max || 0]
-        );
-      }
-
-      // Seed readings (last 6 hours, polled every 30 mins)
-      if (d.online === 1) {
-        const nowMs = Date.now();
-        for (let i = 12; i >= 0; i--) {
-          const timestamp = new Date(nowMs - i * 30 * 60 * 1000).toISOString();
-          // Generate realistic values
-          const val1 = 4.5 + Math.sin(i / 2) * 1.5 + Math.random() * 0.2;
-          const val2 = 25 + Math.cos(i / 3) * 8 + Math.random() * 1.2;
-          const val3 = 45 + Math.sin(i / 4) * 5 + Math.random() * 0.5;
-          const val4 = 12.2 + Math.random() * 0.1;
-
-          this.run(
-            `INSERT INTO device_readings (id, device_id, analog_ch1, analog_ch2, analog_ch3, analog_ch4, digital_in1, digital_in2, digital_out1, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [`read-${d.id}-${i}`, d.id, val1, val2, val3, val4, i % 2, 0, (i + 1) % 2, timestamp]
-          );
-        }
-
-        // Seed some system events
-        this.run(
-          `INSERT INTO device_events (id, device_id, event_type, message, triggered_by)
-           VALUES (?, ?, ?, ?, ?)`,
-          [`event-${d.id}-1`, d.id, "info", "Device initialized successfully", d.owner]
-        );
-        this.run(
-          `INSERT INTO device_events (id, device_id, event_type, message, triggered_by)
-           VALUES (?, ?, ?, ?, ?)`,
-          [`event-${d.id}-2`, d.id, "control", "Solenoid Valve Relay turned ON by user", d.owner]
-        );
-      }
-    }
 
     this.save();
   }

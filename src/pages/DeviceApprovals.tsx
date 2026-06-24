@@ -1,7 +1,6 @@
-import { useState } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle, XCircle, Clock, Cpu, Shield, User } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CheckCircle, XCircle, Clock, Cpu, Shield } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -74,9 +73,12 @@ const DeviceApprovals = () => {
 
   const statusColor = (status: string) => {
     switch (status) {
-      case "approved": return "bg-success/10 text-success";
-      case "rejected": return "bg-destructive/10 text-destructive";
-      default: return "bg-warning/10 text-warning";
+      case "approved":
+        return "bg-primary/10 text-primary border border-primary/20";
+      case "rejected":
+        return "bg-destructive/10 text-destructive border border-destructive/20";
+      default:
+        return "bg-accent/10 text-accent border border-accent/20";
     }
   };
 
@@ -92,43 +94,44 @@ const DeviceApprovals = () => {
 
   return (
     <AppLayout>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Shield size={24} className="text-primary" /> Device Approvals
+            <Shield size={24} className="text-accent" /> Device Approvals
           </h1>
-          <p className="text-sm text-muted-foreground">{pendingDevices.length} devices pending approval</p>
+          <p className="text-sm text-muted-foreground">{pendingDevices.length} devices pending gateway registration approval</p>
         </div>
 
         {/* Pending Devices */}
         {pendingDevices.length > 0 && (
           <div className="space-y-3">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-              <Clock size={14} className="text-warning" /> Pending Approval
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-accent flex items-center gap-2">
+              <Clock size={14} className="animate-pulse" /> Pending Approval
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {pendingDevices.map((device) => (
-                <Card key={device.id} className="border-warning/30">
+                <Card key={device.id} className="border border-primary bg-card relative overflow-hidden shadow-sm">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-accent/5 rounded-full blur-xl pointer-events-none" />
                   <CardContent className="p-5">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-warning/10">
-                          <Cpu size={20} className="text-warning" />
+                        <div className="p-2.5 rounded-xl bg-accent/10 text-accent">
+                          <Cpu size={20} />
                         </div>
                         <div>
                           <h3 className="font-semibold text-foreground">{device.name}</h3>
-                          <p className="font-mono text-xs text-muted-foreground">{device.mac_address}</p>
+                          <p className="font-mono text-xs text-muted-foreground/80 mt-0.5">{device.mac_address}</p>
                         </div>
                       </div>
-                      <Badge className="bg-warning/10 text-warning border-0">Pending</Badge>
+                      <Badge className="bg-accent/15 text-accent border border-accent/25">Pending</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground mb-4">
-                      Added {new Date(device.created_at).toLocaleString()}
+                      Requested: {new Date(device.created_at).toLocaleString()}
                     </p>
                     <div className="flex gap-2">
                       <Button
                         size="sm"
-                        className="flex-1 bg-success hover:bg-success/90 text-success-foreground"
+                        className="flex-1 bg-primary hover:bg-primary/95 text-primary-foreground font-semibold"
                         onClick={() => updateApproval.mutate({ deviceId: device.id, status: "approved" })}
                         disabled={updateApproval.isPending}
                       >
@@ -137,7 +140,7 @@ const DeviceApprovals = () => {
                       <Button
                         size="sm"
                         variant="destructive"
-                        className="flex-1"
+                        className="flex-1 font-semibold"
                         onClick={() => updateApproval.mutate({ deviceId: device.id, status: "rejected" })}
                         disabled={updateApproval.isPending}
                       >
@@ -152,46 +155,47 @@ const DeviceApprovals = () => {
         )}
 
         {/* All Devices Status */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg">All Devices</CardTitle>
+        <Card className="border border-border bg-card shadow-sm relative overflow-hidden">
+          <CardHeader className="pb-3 border-b border-border/40">
+            <CardTitle className="text-base font-semibold text-foreground">Registered Devices Directory</CardTitle>
+            <CardDescription>Directory of all registered IoT nodes and approval state logs</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {isLoading ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
+              <p className="text-sm text-muted-foreground p-6 text-center">Loading devices registry...</p>
             ) : allDevices.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No devices registered yet.</p>
+              <p className="text-sm text-muted-foreground py-12 text-center font-medium">No devices registered in local SQLite DB yet.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border text-muted-foreground">
-                      <th className="text-left py-3 px-2 font-medium">Device</th>
-                      <th className="text-left py-3 px-2 font-medium">MAC</th>
-                      <th className="text-left py-3 px-2 font-medium">Status</th>
-                      <th className="text-left py-3 px-2 font-medium hidden md:table-cell">Added</th>
-                      <th className="text-left py-3 px-2 font-medium">Actions</th>
+                    <tr className="border-b border-border/40 text-muted-foreground bg-muted/10">
+                      <th className="text-left py-3 px-4 font-semibold">Device Nickname / Name</th>
+                      <th className="text-left py-3 px-4 font-semibold">MAC Physical Address</th>
+                      <th className="text-left py-3 px-4 font-semibold">Approval Status</th>
+                      <th className="text-left py-3 px-4 font-semibold hidden md:table-cell">Registered Date</th>
+                      <th className="text-right py-3 px-4 font-semibold">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {allDevices.map((device) => (
-                      <tr key={device.id} className="border-b border-border/50 hover:bg-muted/50">
-                        <td className="py-3 px-2 font-medium text-foreground">{device.nickname || device.name}</td>
-                        <td className="py-3 px-2 font-mono text-xs text-muted-foreground">{device.mac_address}</td>
-                        <td className="py-3 px-2">
-                          <Badge className={`${statusColor(device.approval_status)} border-0 text-xs`}>
+                      <tr key={device.id} className="border-b border-border/20 hover:bg-muted/25 transition-colors">
+                        <td className="py-3.5 px-4 font-semibold text-foreground">{device.nickname || device.name}</td>
+                        <td className="py-3.5 px-4 font-mono text-xs text-muted-foreground">{device.mac_address}</td>
+                        <td className="py-3.5 px-4">
+                          <Badge className={`${statusColor(device.approval_status)} font-semibold text-xs`}>
                             {device.approval_status}
                           </Badge>
                         </td>
-                        <td className="py-3 px-2 text-xs text-muted-foreground hidden md:table-cell">
+                        <td className="py-3.5 px-4 text-xs text-muted-foreground font-mono hidden md:table-cell">
                           {new Date(device.created_at).toLocaleDateString()}
                         </td>
-                        <td className="py-3 px-2">
+                        <td className="py-3.5 px-4 text-right">
                           {device.approval_status !== "approved" && (
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="text-xs h-7 text-success"
+                              className="text-xs h-7 text-primary hover:text-primary hover:bg-primary/10 border border-transparent hover:border-primary/10"
                               onClick={() => updateApproval.mutate({ deviceId: device.id, status: "approved" })}
                             >
                               Approve
@@ -201,7 +205,7 @@ const DeviceApprovals = () => {
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="text-xs h-7 text-destructive"
+                              className="text-xs h-7 text-destructive hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/10"
                               onClick={() => updateApproval.mutate({ deviceId: device.id, status: "rejected" })}
                             >
                               Revoke

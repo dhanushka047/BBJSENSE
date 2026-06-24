@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Shield, UserCheck, UserX, Search, Trash2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Shield, UserCheck, UserX, Search } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import AppLayout from "@/components/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
@@ -122,34 +121,44 @@ const AdminUsers = () => {
 
   return (
     <AppLayout>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Shield size={24} className="text-primary" /> User Management
-          </h1>
-          <p className="text-sm text-muted-foreground">{profiles.length} registered users</p>
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Shield size={24} className="text-accent" /> User Management
+            </h1>
+            <p className="text-sm text-muted-foreground">{profiles.length} registered console accounts</p>
+          </div>
+          <div className="relative w-full sm:max-w-xs">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search user, email or plant..."
+              className="pl-9 h-10 bg-background border-border"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
         </div>
 
-        <div className="relative max-w-sm">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search users..." className="pl-9 h-10" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-
-        <Card>
+        <Card className="border border-border bg-card shadow-sm relative overflow-hidden">
+          <CardHeader className="pb-3 border-b border-border/40">
+            <CardTitle className="text-base font-semibold text-foreground">Registered Members Directory</CardTitle>
+            <CardDescription>View status, alter permission roles, or revoke system console access</CardDescription>
+          </CardHeader>
           <CardContent className="p-0">
             {isLoading ? (
-              <p className="text-sm text-muted-foreground p-6 text-center">Loading users...</p>
+              <p className="text-sm text-muted-foreground p-6 text-center">Loading users directory...</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-border text-muted-foreground">
-                      <th className="text-left py-3 px-4 font-medium">User</th>
-                      <th className="text-left py-3 px-4 font-medium hidden md:table-cell">Factory</th>
-                      <th className="text-left py-3 px-4 font-medium">Role</th>
-                      <th className="text-left py-3 px-4 font-medium hidden sm:table-cell">Devices</th>
-                      <th className="text-left py-3 px-4 font-medium">Status</th>
-                      <th className="text-right py-3 px-4 font-medium">Actions</th>
+                    <tr className="border-b border-border/40 text-muted-foreground bg-muted/10">
+                      <th className="text-left py-3 px-4 font-semibold">User Details</th>
+                      <th className="text-left py-3 px-4 font-semibold hidden md:table-cell">Factory / Plant Name</th>
+                      <th className="text-left py-3 px-4 font-semibold">System Role</th>
+                      <th className="text-left py-3 px-4 font-semibold hidden sm:table-cell">Connected Gateway Nodes</th>
+                      <th className="text-left py-3 px-4 font-semibold">Subscription Status</th>
+                      <th className="text-right py-3 px-4 font-semibold">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -157,16 +166,16 @@ const AdminUsers = () => {
                       const userRole = getRoleForUser(user.user_id);
                       const devCount = deviceCounts[user.user_id] || 0;
                       return (
-                        <tr key={user.id} className="border-b border-border/50 hover:bg-muted/50 transition-colors">
-                          <td className="py-3 px-4">
-                            <p className="font-medium text-foreground">{user.first_name} {user.last_name}</p>
-                            <p className="text-xs text-muted-foreground">{user.email}</p>
+                        <tr key={user.id} className="border-b border-border/20 hover:bg-muted/25 transition-colors">
+                          <td className="py-3.5 px-4">
+                            <p className="font-semibold text-foreground">{user.first_name} {user.last_name}</p>
+                            <p className="text-xs text-muted-foreground font-mono mt-0.5">{user.email}</p>
                           </td>
-                          <td className="py-3 px-4 text-muted-foreground hidden md:table-cell">{user.factory_name || "—"}</td>
-                          <td className="py-3 px-4">
+                          <td className="py-3.5 px-4 text-muted-foreground hidden md:table-cell">{user.factory_name || "—"}</td>
+                          <td className="py-3.5 px-4">
                             {isSuperAdmin ? (
                               <Select value={userRole} onValueChange={(v) => updateRole.mutate({ userId: user.user_id, newRole: v })}>
-                                <SelectTrigger className="h-7 w-28 text-xs">
+                                <SelectTrigger className="h-8 w-32 text-xs bg-background/50 border-white/10 font-semibold">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -176,22 +185,30 @@ const AdminUsers = () => {
                                 </SelectContent>
                               </Select>
                             ) : (
-                              <Badge variant={userRole !== "user" ? "default" : "secondary"} className="text-xs">
+                              <Badge className="text-[10px] font-bold border-0 bg-primary/10 text-primary uppercase">
                                 {userRole}
                               </Badge>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-muted-foreground hidden sm:table-cell">{devCount}</td>
-                          <td className="py-3 px-4">
-                            <span className={`text-xs font-medium ${user.subscription_status === "active" ? "text-success" : "text-destructive"}`}>
+                          <td className="py-3.5 px-4 text-muted-foreground font-semibold font-mono hidden sm:table-cell">{devCount}</td>
+                          <td className="py-3.5 px-4">
+                            <Badge className={`text-xs font-semibold ${
+                              user.subscription_status === "active"
+                                ? "bg-primary/10 text-primary border border-primary/20"
+                                : "bg-destructive/10 text-destructive border border-destructive/20"
+                            }`}>
                               {user.subscription_status}
-                            </span>
+                            </Badge>
                           </td>
-                          <td className="py-3 px-4 text-right">
+                          <td className="py-3.5 px-4 text-right">
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-8 text-xs"
+                              className={`h-8 text-xs font-semibold border border-transparent ${
+                                user.subscription_status === "active"
+                                  ? "text-destructive hover:bg-destructive/10 hover:text-destructive hover:border-destructive/10"
+                                  : "text-primary hover:bg-primary/10 hover:text-primary hover:border-primary/10"
+                              }`}
                               onClick={() =>
                                 updateStatus.mutate({
                                   userId: user.user_id,
@@ -199,7 +216,11 @@ const AdminUsers = () => {
                                 })
                               }
                             >
-                              {user.subscription_status === "active" ? "Suspend" : "Activate"}
+                              {user.subscription_status === "active" ? (
+                                <><UserX size={13} className="mr-1" /> Suspend</>
+                              ) : (
+                                <><UserCheck size={13} className="mr-1" /> Activate</>
+                              )}
                             </Button>
                           </td>
                         </tr>

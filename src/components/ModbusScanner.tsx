@@ -606,7 +606,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
     <div className="space-y-6">
       {/* Port Connection & Configuration Control */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="border-border/50 lg:col-span-2">
+        <Card className="border-border lg:col-span-2">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center justify-between">
               <span>RS-485 Modbus Port Connection</span>
@@ -785,7 +785,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
         </Card>
 
         {/* Selected Modbus device detail */}
-        <Card className="border-border/50">
+        <Card className="border-border">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2"><Cpu size={16} className="text-primary" /> Slaves & Seeding</CardTitle>
             <CardDescription>Select Modbus slave configs or seed templates</CardDescription>
@@ -835,7 +835,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
               </div>
             </div>
 
-            <div className="border-t border-border/40 my-3" />
+            <div className="border-t border-border my-3" />
 
             {/* Seed Device / New Device Profile Form */}
             <div className="space-y-2.5">
@@ -877,7 +877,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
 
       {/* Main Monitoring, Feed and Diagnostics Tabs */}
       <Tabs defaultValue="values" className="space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-muted/30 border border-border/50 rounded-lg p-2 flex-wrap">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-muted border border-border rounded-lg p-2 flex-wrap">
           <TabsList className="bg-muted">
             <TabsTrigger value="values" className="flex items-center gap-1.5"><Activity size={14} /> Live values</TabsTrigger>
             <TabsTrigger value="feed" className="flex items-center gap-1.5"><Radio size={14} /> Data feed</TabsTrigger>
@@ -945,7 +945,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
 
         {/* Live Values Table */}
         <TabsContent value="values" className="m-0">
-          <Card className="border-border/50">
+          <Card className="border-border">
             <CardContent className="p-0">
               {registers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
@@ -994,7 +994,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
 
         {/* Live Data Feed */}
         <TabsContent value="feed" className="m-0">
-          <Card className="border-border/50">
+          <Card className="border-border">
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-sm">Historical Data Log Feed</CardTitle>
@@ -1101,7 +1101,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
               </CardContent>
             </Card>
 
-            <Card className="border-border/50 md:col-span-2">
+            <Card className="border-border md:col-span-2">
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm">Diagnostic Transaction Output</CardTitle>
                 <CardDescription>Inspect manual frame request responses in raw formats</CardDescription>
@@ -1113,7 +1113,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between pb-2 border-b border-border/40">
+                    <div className="flex items-center justify-between pb-2 border-b border-border">
                       <span className="text-muted-foreground">Transaction Time: {manualResult.ts}</span>
                       <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                         manualResult.status === "success" ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"
@@ -1162,8 +1162,8 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
 
         {/* Terminal logs tab */}
         <TabsContent value="logs" className="m-0">
-          <Card className="border-border/50 bg-black/90">
-            <CardHeader className="pb-3 border-b border-border/10">
+          <Card className="border-border bg-black/90">
+            <CardHeader className="pb-3 border-b border-border">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-sm text-success font-mono">dev-terminal-logs (~/rs485-bus)</CardTitle>
@@ -1185,7 +1185,7 @@ export default function ModbusScanner({ device }: ModbusScannerProps) {
                       log.type === "error" ? "text-destructive" :
                       log.type === "warn" ? "text-warning" : "text-muted-foreground";
                     return (
-                      <div key={idx} className="flex items-start gap-2 border-b border-border/5 py-0.5">
+                      <div key={idx} className="flex items-start gap-2 border-b border-border py-0.5">
                         <span className="text-muted-foreground/50 w-20 shrink-0">{log.ts}</span>
                         <span className={`font-semibold shrink-0 ${color}`}>
                           {log.type === "success" ? "[ OK ]" :

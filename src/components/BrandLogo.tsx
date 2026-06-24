@@ -1,19 +1,25 @@
-import { Activity } from "lucide-react";
+import { useBranding } from "@/contexts/BrandingContext";
 
 export function BrandLogo({ size = "default" }: { size?: "small" | "default" | "large" }) {
-  const sizeClasses = {
-    small: "text-lg gap-2",
-    default: "text-2xl gap-2.5",
-    large: "text-4xl gap-3",
+  const { siteName, siteLogo } = useBranding();
+
+  const logoSizes = {
+    small: "h-12 w-12",     // 48px (was 32px)
+    default: "h-16 w-16",   // 64px (was 48px)
+    large: "h-28 w-28",     // 112px (was 80px)
   };
-  const iconSizes = { small: 20, default: 28, large: 40 };
 
   return (
-    <div className={`flex items-center font-bold tracking-tight ${sizeClasses[size]}`}>
-      <div className="gradient-brand rounded-lg p-1.5 flex items-center justify-center">
-        <Activity className="text-primary-foreground" size={iconSizes[size]} />
-      </div>
-      <span className="text-gradient-brand">BBJSENSE</span>
+    <div className="flex items-center justify-center bg-transparent">
+      <img
+        src={siteLogo}
+        alt={siteName}
+        className={`${logoSizes[size]} object-contain`}
+        onError={(e) => {
+          // Fallback to default logo if custom URL fails to load
+          (e.target as HTMLImageElement).src = "/logo.png";
+        }}
+      />
     </div>
   );
 }

@@ -22,8 +22,10 @@ import AppLayout from "@/components/AppLayout";
 import ModbusScanner from "@/components/ModbusScanner";
 
 const CHART_COLORS = [
-  "hsl(190, 85%, 50%)", "hsl(265, 70%, 60%)",
-  "hsl(38, 92%, 50%)", "hsl(152, 69%, 45%)",
+  "hsl(214, 35%, 45%)", // Bedazzled Blue
+  "hsl(12, 83%, 62%)",  // Burnt Sienna Orange
+  "hsl(202, 46%, 65%)", // Soft Blue
+  "hsl(218, 30%, 40%)", // Navy Accent
 ];
 
 const CustomTooltip = ({ active, payload, label }: any) => {

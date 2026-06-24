@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Save, RefreshCw, Settings, Activity, Zap, ToggleRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, Save, RefreshCw, Settings, Activity, Zap, ToggleRight, Info } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -171,7 +171,7 @@ const DeviceConfig = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["device-channel-config", id] });
       queryClient.invalidateQueries({ queryKey: ["device", id] });
-      toast({ title: "Configuration saved", description: "Settings will sync on next device connection." });
+      toast({ title: "Configuration saved", description: "Channel parameters applied locally in SQLite storage." });
     },
     onError: (err: any) => {
       toast({ title: "Error saving config", description: err.message, variant: "destructive" });
@@ -184,178 +184,184 @@ const DeviceConfig = () => {
 
   return (
     <AppLayout>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 max-w-4xl">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6 max-w-4xl">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Link to={`/devices/${id}`}>
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-                <ArrowLeft size={20} />
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground border border-white/5 bg-background/30">
+                <ArrowLeft size={18} />
               </Button>
             </Link>
             <div>
               <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-                <Settings size={22} className="text-primary" /> Device Configuration
+                <Settings size={22} className="text-accent" /> Device Configuration
               </h1>
-              <p className="text-sm text-muted-foreground">{device?.nickname || device?.name || "Loading..."}</p>
+              <p className="text-sm text-muted-foreground">{device?.nickname || device?.name || "Loading gateway info..."}</p>
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => queryClient.invalidateQueries({ queryKey: ["device-channel-config", id] })}>
-              <RefreshCw size={14} className="mr-1.5" /> Sync
+            <Button variant="outline" size="sm" className="border-white/10 hover:bg-muted/80 text-foreground" onClick={() => queryClient.invalidateQueries({ queryKey: ["device-channel-config", id] })}>
+              <RefreshCw size={14} className="mr-1.5 animate-spin-slow" /> Revert
             </Button>
-            <Button className="gradient-brand text-primary-foreground" onClick={() => saveConfig.mutate()} disabled={saveConfig.isPending}>
+            <Button className="gradient-brand text-primary-foreground font-semibold" onClick={() => saveConfig.mutate()} disabled={saveConfig.isPending}>
               <Save size={14} className="mr-1.5" /> {saveConfig.isPending ? "Saving..." : "Save Config"}
             </Button>
           </div>
         </div>
 
         {/* Device Settings */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">General Settings</CardTitle>
+        <Card className="border-border bg-card shadow-sm relative overflow-hidden">
+          <CardHeader className="pb-3 border-b border-border/40">
+            <CardTitle className="text-base font-semibold text-foreground">General Gateway Parameters</CardTitle>
+            <CardDescription>Main identification tags and local physical interface address</CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
             <div className="space-y-2">
-              <Label className="text-xs">Device Nickname</Label>
-              <Input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="e.g. Main Pump" />
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Device Nickname</Label>
+              <Input value={nickname} onChange={(e) => setNickname(e.target.value)} placeholder="e.g. Main Pump" className="bg-background border-border text-foreground" />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs">Modbus Address</Label>
-              <Input value={modbusAddr} onChange={(e) => setModbusAddr(e.target.value)} placeholder="0x01" className="font-mono" />
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Modbus Address</Label>
+              <Input value={modbusAddr} onChange={(e) => setModbusAddr(e.target.value)} placeholder="0x01" className="font-mono bg-background border-border text-foreground" />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs">MAC Address</Label>
-              <Input value={device?.mac_address || ""} disabled className="font-mono text-muted-foreground" />
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">MAC Address</Label>
+              <Input value={device?.mac_address || ""} disabled className="font-mono text-muted-foreground bg-muted border-border opacity-85" />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs">Status</Label>
-              <Input value={device?.is_online ? "Online" : "Offline"} disabled />
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">State</Label>
+              <div className="flex items-center h-10 px-3 rounded-md border border-border bg-muted">
+                <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  device?.is_online ? "bg-accent/15 text-accent" : "bg-muted text-muted-foreground"
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${device?.is_online ? "bg-accent channel-pulse" : "bg-muted-foreground"}`} />
+                  {device?.is_online ? "Online" : "Offline"}
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Analog Channel Config */}
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="border-border bg-card shadow-sm relative overflow-hidden">
+          <CardHeader className="pb-3 border-b border-border/40">
             <CardTitle className="text-base flex items-center gap-2">
-              <Activity size={16} className="text-channel-analog" /> Analog Channels
+              <Activity size={16} className="text-accent" /> Analog Input Channels
             </CardTitle>
+            <CardDescription>Setup ranges (0-10V or 4-20mA) and engineering scale limits</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {analogConfigs.map((ch) => (
-                <div key={ch.channel_number} className="grid grid-cols-2 sm:grid-cols-5 gap-3 items-end p-3 rounded-lg bg-muted/50 border border-border/50">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">CH{ch.channel_number} Label</Label>
-                    <Input
-                      value={ch.label}
-                      onChange={(e) => updateConfig("analog", ch.channel_number, "label", e.target.value)}
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Mode</Label>
-                    <Select
-                      value={ch.data_mode}
-                      onValueChange={(v) => updateConfig("analog", ch.channel_number, "data_mode", v)}
-                    >
-                      <SelectTrigger className="h-9 text-sm">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0-10V">0-10V</SelectItem>
-                        <SelectItem value="4-20mA">4-20mA</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Unit</Label>
-                    <Input
-                      value={ch.unit}
-                      onChange={(e) => updateConfig("analog", ch.channel_number, "unit", e.target.value)}
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Min</Label>
-                    <Input
-                      type="number"
-                      value={ch.min_value}
-                      onChange={(e) => updateConfig("analog", ch.channel_number, "min_value", parseFloat(e.target.value))}
-                      className="h-9 text-sm font-mono"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Max</Label>
-                    <Input
-                      type="number"
-                      value={ch.max_value}
-                      onChange={(e) => updateConfig("analog", ch.channel_number, "max_value", parseFloat(e.target.value))}
-                      className="h-9 text-sm font-mono"
-                    />
-                  </div>
+          <CardContent className="space-y-4 pt-4">
+            {analogConfigs.map((ch) => (
+              <div key={ch.channel_number} className="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end p-4 rounded-xl bg-muted/30 border border-border">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">CH{ch.channel_number} Custom Label</Label>
+                  <Input
+                    value={ch.label}
+                    onChange={(e) => updateConfig("analog", ch.channel_number, "label", e.target.value)}
+                    className="h-9 text-sm bg-background border-border text-foreground"
+                  />
                 </div>
-              ))}
-            </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Signal Range</Label>
+                  <Select
+                    value={ch.data_mode}
+                    onValueChange={(v) => updateConfig("analog", ch.channel_number, "data_mode", v)}
+                  >
+                    <SelectTrigger className="h-9 text-sm bg-background border-border text-foreground">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0-10V">0-10V</SelectItem>
+                      <SelectItem value="4-20mA">4-20mA</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Engineering Unit</Label>
+                  <Input
+                    value={ch.unit}
+                    onChange={(e) => updateConfig("analog", ch.channel_number, "unit", e.target.value)}
+                    className="h-9 text-sm bg-background border-border text-foreground font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Min Scale</Label>
+                  <Input
+                    type="number"
+                    value={ch.min_value}
+                    onChange={(e) => updateConfig("analog", ch.channel_number, "min_value", parseFloat(e.target.value))}
+                    className="h-9 text-sm font-mono bg-background border-border text-foreground"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Max Scale</Label>
+                  <Input
+                    type="number"
+                    value={ch.max_value}
+                    onChange={(e) => updateConfig("analog", ch.channel_number, "max_value", parseFloat(e.target.value))}
+                    className="h-9 text-sm font-mono bg-background border-border text-foreground"
+                  />
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
         {/* Digital Input Config */}
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="border-border bg-card shadow-sm relative overflow-hidden">
+          <CardHeader className="pb-3 border-b border-border/40">
             <CardTitle className="text-base flex items-center gap-2">
-              <Zap size={16} className="text-channel-digital-in" /> Digital Inputs
+              <Zap size={16} className="text-primary" /> Digital Input Channels
             </CardTitle>
+            <CardDescription>Custom tags for discrete inputs</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {diConfigs.map((ch) => (
-                <div key={ch.channel_number} className="flex items-end gap-3 p-3 rounded-lg bg-muted/50 border border-border/50">
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-xs text-muted-foreground">DI{ch.channel_number} Label</Label>
-                    <Input
-                      value={ch.label}
-                      onChange={(e) => updateConfig("digital_in", ch.channel_number, "label", e.target.value)}
-                      className="h-9 text-sm"
-                    />
-                  </div>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+            {diConfigs.map((ch) => (
+              <div key={ch.channel_number} className="flex items-end gap-3 p-4 rounded-xl bg-muted/30 border border-border">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs text-muted-foreground">DI {ch.channel_number} Custom Label</Label>
+                  <Input
+                    value={ch.label}
+                    onChange={(e) => updateConfig("digital_in", ch.channel_number, "label", e.target.value)}
+                    className="h-9 text-sm bg-background border-border text-foreground"
+                  />
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
         {/* Digital Output Config */}
-        <Card>
-          <CardHeader className="pb-3">
+        <Card className="border-border bg-card shadow-sm relative overflow-hidden">
+          <CardHeader className="pb-3 border-b border-border/40">
             <CardTitle className="text-base flex items-center gap-2">
-              <ToggleRight size={16} className="text-channel-digital-out" /> Digital Outputs
+              <ToggleRight size={16} className="text-accent" /> Digital Output Channels
             </CardTitle>
+            <CardDescription>Custom labels for discrete actuators/relays</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {doConfigs.map((ch) => (
-                <div key={ch.channel_number} className="flex items-end gap-3 p-3 rounded-lg bg-muted/50 border border-border/50">
-                  <div className="flex-1 space-y-1">
-                    <Label className="text-xs text-muted-foreground">DO{ch.channel_number} Label</Label>
-                    <Input
-                      value={ch.label}
-                      onChange={(e) => updateConfig("digital_out", ch.channel_number, "label", e.target.value)}
-                      className="h-9 text-sm"
-                    />
-                  </div>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
+            {doConfigs.map((ch) => (
+              <div key={ch.channel_number} className="flex items-end gap-3 p-4 rounded-xl bg-muted/30 border border-border">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-xs text-muted-foreground">DO {ch.channel_number} Custom Label</Label>
+                  <Input
+                    value={ch.label}
+                    onChange={(e) => updateConfig("digital_out", ch.channel_number, "label", e.target.value)}
+                    className="h-9 text-sm bg-background border-border text-foreground"
+                  />
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
 
-        {/* Sync info */}
-        <Card className="border-primary/20">
-          <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">
-              <strong className="text-foreground">Device Sync:</strong> Configuration changes are saved to the cloud. When the physical device polls for updates via the <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-foreground">/device-status</code> endpoint, it will receive the latest channel configuration and apply it locally.
+        {/* Local database sync notes */}
+        <Card className="border-primary/20 shadow-md bg-primary/5">
+          <CardContent className="p-4 flex gap-3 text-xs text-muted-foreground font-sans">
+            <Info className="text-primary shrink-0" size={16} />
+            <p className="leading-relaxed">
+              <strong className="text-foreground">Local Synchronization:</strong> Channel configurations are instantly compiled into the local SQLite database. In the physical system, devices fetch their configurations via the <code className="bg-background/80 px-1 py-0.5 rounded font-mono text-[10px]">/device-status</code> API to automatically adjust their electrical ranges.
             </p>
           </CardContent>
         </Card>

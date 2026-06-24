@@ -1,66 +1,235 @@
 /**
  * client.ts
- * Mock Supabase Client.
- * Redirects all queries and authentication calls directly to the local browser-side SQLite database.
+ * Supabase Client Adapter.
+ * Redirects all queries, authentication, and real-time subscriptions
+ * to the backend Express server (REST + WebSockets).
  */
 
-import { localDb, localAuth, type SessionUser } from "@/lib/localDb";
+const API_BASE_URL = "http://localhost:5001/api";
+const WS_URL = "ws://localhost:5001/ws";
+const TOKEN_KEY = "bbjsense_auth_token";
 
-// ── Mock Auth System ─────────────────────────────────────────────────────────
-class MockAuth {
+// Helper to get headers with JWT token
+function getHeaders(): HeadersInit {
+  const token = localStorage.getItem(TOKEN_KEY);
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+// ── Shared WebSocket Manager for Real-time Subscriptions ────────────────────
+class WebSocketManager {
+  private ws: WebSocket | null = null;
+  private subscriptions = new Map<string, Set<(payload: any) => void>>();
+  private reconnectTimeout: any = null;
+
+  constructor() {
+    this.connect();
+  }
+
+  private connect() {
+    if (this.ws) return;
+
+    console.log("[WS-Client] Connecting to WebSocket server...");
+    this.ws = new WebSocket(WS_URL);
+
+    this.ws.onopen = () => {
+      console.log("[WS-Client] Connected to WebSocket server");
+      // Re-subscribe to all active topics on reconnect
+      for (const topic of this.subscriptions.keys()) {
+        this.sendSubscribe(topic);
+      }
+    };
+
+    this.ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        const { topic, event: eventType, payload } = message;
+
+        if (this.subscriptions.has(topic)) {
+          const listeners = this.subscriptions.get(topic);
+          if (listeners) {
+            // Emulate Supabase Postgres Changes payload structure
+            const supabasePayload = {
+              schema: "public",
+              table: this.getTableFromTopic(topic),
+              commit_timestamp: new Date().toISOString(),
+              eventType: eventType, // 'INSERT', 'UPDATE', 'DELETE'
+              new: eventType !== "DELETE" ? payload : {},
+              old: eventType === "DELETE" ? payload : {},
+            };
+
+            listeners.forEach((cb) => cb(supabasePayload));
+          }
+        }
+      } catch (err) {
+        console.error("[WS-Client] Error handling message:", err);
+      }
+    };
+
+    this.ws.onclose = () => {
+      console.log("[WS-Client] Disconnected, scheduling reconnect...");
+      this.ws = null;
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = setTimeout(() => this.connect(), 3000);
+    };
+
+    this.ws.onerror = (err) => {
+      console.error("[WS-Client] WebSocket error:", err);
+    };
+  }
+
+  private sendSubscribe(topic: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ action: "subscribe", topic }));
+    }
+  }
+
+  private sendUnsubscribe(topic: string) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ action: "unsubscribe", topic }));
+    }
+  }
+
+  subscribe(topic: string, callback: (payload: any) => void) {
+    if (!this.subscriptions.has(topic)) {
+      this.subscriptions.set(topic, new Set());
+      this.sendSubscribe(topic);
+    }
+    this.subscriptions.get(topic)!.add(callback);
+
+    return () => {
+      const listeners = this.subscriptions.get(topic);
+      if (listeners) {
+        listeners.delete(callback);
+        if (listeners.size === 0) {
+          this.subscriptions.delete(topic);
+          this.sendUnsubscribe(topic);
+        }
+      }
+    };
+  }
+
+  private getTableFromTopic(topic: string): string {
+    if (topic.startsWith("device-readings-")) return "device_readings";
+    if (topic.startsWith("device-events-")) return "device_events";
+    if (topic.startsWith("modbus_readings-")) return "modbus_readings";
+    return topic; // e.g. 'devices'
+  }
+}
+
+const wsManager = new WebSocketManager();
+
+// ── Auth System ─────────────────────────────────────────────────────────────
+class AuthClient {
   private listeners: ((event: string, session: any) => void)[] = [];
 
   constructor() {
-    // Poll session changes slightly to trigger listeners
-    setInterval(() => {
-      const user = localAuth.getSession();
-      if (user) {
-        this.trigger("SIGNED_IN", { user });
-      }
-    }, 1000);
+    // Check session validity on startup
+    this.getSession();
   }
 
   async signInWithPassword({ email, password }: any) {
-    const { user, error } = await localAuth.login(email, password);
-    if (user) {
-      this.trigger("SIGNED_IN", { user });
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        return { data: null, error: new Error(data.error || "Login failed") };
+      }
+
+      localStorage.setItem(TOKEN_KEY, data.session.access_token);
+      this.trigger("SIGNED_IN", data.session);
+      return { data, error: null };
+    } catch (err: any) {
+      return { data: null, error: err };
     }
-    return { data: { user, session: user ? { user } : null }, error };
   }
 
   async signUp({ email, password, options }: any) {
-    const meta = options?.data || {};
-    const { user, error } = await localAuth.signUp(email, password, meta);
-    if (user) {
-      this.trigger("SIGNED_IN", { user });
+    try {
+      const meta = options?.data || {};
+      const res = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password,
+          first_name: meta.first_name || "",
+          last_name: meta.last_name || "",
+          factory_name: meta.factory_name || "",
+          location: meta.location || "",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        return { data: null, error: new Error(data.error || "Registration failed") };
+      }
+
+      localStorage.setItem(TOKEN_KEY, data.session.access_token);
+      this.trigger("SIGNED_IN", data.session);
+      return { data, error: null };
+    } catch (err: any) {
+      return { data: null, error: err };
     }
-    return { data: { user, session: user ? { user } : null }, error };
   }
 
   async signOut() {
-    await localAuth.signOut();
+    localStorage.removeItem(TOKEN_KEY);
     this.trigger("SIGNED_OUT", null);
     return { error: null };
   }
 
   async getSession() {
-    const user = localAuth.getSession();
-    return { data: { session: user ? { user } : null }, error: null };
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      return { data: { session: null }, error: null };
+    }
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/session`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        localStorage.removeItem(TOKEN_KEY);
+        this.trigger("SIGNED_OUT", null);
+        return { data: { session: null }, error: null };
+      }
+
+      return { data: { session: data.session }, error: null };
+    } catch (err: any) {
+      return { data: { session: null }, error: err };
+    }
   }
 
   onAuthStateChange(callback: (event: string, session: any) => void) {
     this.listeners.push(callback);
-    const user = localAuth.getSession();
-    callback(user ? "SIGNED_IN" : "SIGNED_OUT", user ? { user } : null);
+    this.getSession().then(({ data }) => {
+      callback(data?.session ? "SIGNED_IN" : "SIGNED_OUT", data?.session);
+    });
 
     return {
       data: {
         subscription: {
           unsubscribe: () => {
             this.listeners = this.listeners.filter((l) => l !== callback);
-          }
-        }
-      }
+          },
+        },
+      },
     };
   }
 
@@ -69,11 +238,10 @@ class MockAuth {
   }
 }
 
-// ── Mock Query Builder ───────────────────────────────────────────────────────
-class MockQueryBuilder {
+// ── REST Query Builder (Translates supabase chaining to REST calls) ──────────
+class RestQueryBuilder {
   private table: string;
   private isSelect = false;
-  private selectCols = "*";
   private isInsert = false;
   private insertData: any = null;
   private isUpdate = false;
@@ -94,7 +262,6 @@ class MockQueryBuilder {
 
   select(cols: string = "*") {
     this.isSelect = true;
-    this.selectCols = cols;
     return this;
   }
 
@@ -167,192 +334,298 @@ class MockQueryBuilder {
     }
   }
 
+  private getFilterValue(col: string): any {
+    const filter = this.filters.find((f) => f.col === col && f.op === "=");
+    return filter ? filter.val : null;
+  }
+
   private async execute(): Promise<{ data: any; error: any }> {
-    return new Promise((resolve) => {
-      localDb.onReady(() => {
-        try {
-          if (this.isSelect) {
-            resolve(this.executeSelect());
-          } else if (this.isInsert) {
-            resolve(this.executeInsert());
-          } else if (this.isUpdate) {
-            resolve(this.executeUpdate());
-          } else if (this.isDelete) {
-            resolve(this.executeDelete());
-          } else if (this.isUpsert) {
-            resolve(this.executeUpsert());
-          } else {
-            resolve({ data: null, error: new Error("Invalid query action") });
-          }
-        } catch (err: any) {
-          resolve({ data: null, error: err });
+    const idFilter = this.getFilterValue("id");
+    const deviceIdFilter = this.getFilterValue("device_id") || this.getFilterValue("modbus_device_id");
+    const userIdFilter = this.getFilterValue("user_id") || this.getFilterValue("created_by");
+
+    let url = "";
+    let method = "GET";
+    let body: any = null;
+
+    // 1. Map tables to specific REST routes
+    if (this.table === "devices") {
+      if (this.isSelect) {
+        url = idFilter ? `${API_BASE_URL}/devices/${idFilter}` : `${API_BASE_URL}/devices`;
+        const params = [];
+        const statusFilter = this.getFilterValue("approval_status");
+        if (statusFilter) params.push(`approval_status=${statusFilter}`);
+        const ownerFilter = this.getFilterValue("owner_id");
+        if (ownerFilter) params.push(`owner_id=${ownerFilter}`);
+        if (params.length > 0 && !idFilter) {
+          url += `?${params.join("&")}`;
         }
-      });
-    });
-  }
-
-  private executeSelect() {
-    let sql = `SELECT * FROM ${this.table}`;
-    const params: any[] = [];
-
-    if (this.filters.length > 0) {
-      const parts = this.filters.map((f) => {
-        params.push(f.val);
-        return `${f.col} ${f.op} ?`;
-      });
-      sql += ` WHERE ${parts.join(" AND ")}`;
-    }
-
-    if (this.orderCol) {
-      sql += ` ORDER BY ${this.orderCol} ${this.orderAsc ? "ASC" : "DESC"}`;
-    }
-
-    if (this.limitCount !== null) {
-      sql += ` LIMIT ${this.limitCount}`;
-    }
-
-    const rows = localDb.query(sql, params);
-
-    // Emulate boolean conversions if types need adjusting
-    const parsedRows = rows.map((row) => {
-      const copy = { ...row };
-      // SQLite stores boolean as 1/0, convert back to boolean for devices and readings
-      if (this.table === "devices") {
-        if (copy.is_online !== undefined) copy.is_online = copy.is_online === 1;
+      } else if (this.isInsert) {
+        url = `${API_BASE_URL}/devices`;
+        method = "POST";
+        body = this.insertData;
+      } else if (this.isUpdate) {
+        url = `${API_BASE_URL}/devices/${idFilter}`;
+        method = "PUT";
+        body = this.updateData;
+      } else if (this.isDelete) {
+        url = `${API_BASE_URL}/devices/${idFilter}`;
+        method = "DELETE";
       }
-      if (this.table === "device_readings") {
-        ["digital_in1", "digital_in2", "digital_in3", "digital_in4", "digital_out1", "digital_out2", "digital_out3", "digital_out4"].forEach((k) => {
-          if (copy[k] !== undefined && copy[k] !== null) copy[k] = copy[k] === 1;
-        });
+    } 
+    
+    else if (this.table === "device_readings") {
+      if (this.isSelect) {
+        url = `${API_BASE_URL}/device-readings?device_id=${deviceIdFilter}`;
+        if (this.limitCount) url += `&limit=${this.limitCount}`;
+        if (this.orderCol) url += `&order=${this.orderAsc ? "asc" : "desc"}`;
+      } else if (this.isInsert) {
+        url = `${API_BASE_URL}/device-readings`;
+        method = "POST";
+        body = this.insertData;
       }
-      return copy;
-    });
-
-    if (this.expectSingle) {
-      return { data: parsedRows[0] || null, error: null };
+    } 
+    
+    else if (this.table === "device_events") {
+      if (this.isSelect) {
+        url = `${API_BASE_URL}/device-events`;
+        const params = [];
+        if (deviceIdFilter) params.push(`device_id=${deviceIdFilter}`);
+        const typeFilter = this.getFilterValue("event_type");
+        if (typeFilter) params.push(`event_type=${typeFilter}`);
+        if (this.limitCount) params.push(`limit=${this.limitCount}`);
+        if (params.length > 0) url += `?${params.join("&")}`;
+      } else if (this.isInsert) {
+        url = `${API_BASE_URL}/device-events`;
+        method = "POST";
+        body = this.insertData;
+      }
+    } 
+    
+    else if (this.table === "device_channel_config") {
+      if (this.isSelect) {
+        url = `${API_BASE_URL}/device-channel-config?device_id=${deviceIdFilter}`;
+      } else if (this.isUpsert) {
+        // Map upsert to batch update
+        const configs = Array.isArray(this.upsertData) ? this.upsertData : [this.upsertData];
+        const devId = configs[0]?.device_id || deviceIdFilter;
+        url = `${API_BASE_URL}/device-channel-config/batch`;
+        method = "POST";
+        body = { device_id: devId, configs };
+      }
+    } 
+    
+    else if (this.table === "profiles") {
+      const targetUserId = userIdFilter || idFilter;
+      if (this.isSelect) {
+        url = targetUserId ? `${API_BASE_URL}/profiles/${targetUserId}` : `${API_BASE_URL}/profiles`;
+      } else if (this.isUpdate) {
+        url = `${API_BASE_URL}/profiles/${targetUserId}`;
+        method = "PUT";
+        body = this.updateData;
+      }
+    } 
+    
+    else if (this.table === "notification_preferences") {
+      const targetUserId = userIdFilter || idFilter;
+      if (this.isSelect) {
+        url = `${API_BASE_URL}/profiles/${targetUserId}/preferences`;
+      } else if (this.isUpdate) {
+        url = `${API_BASE_URL}/profiles/${targetUserId}/preferences`;
+        method = "PUT";
+        body = this.updateData;
+      }
+    } 
+    
+    else if (this.table === "user_roles") {
+      if (this.isSelect) {
+        url = userIdFilter ? `${API_BASE_URL}/profiles/${userIdFilter}` : `${API_BASE_URL}/profiles/roles`;
+      } else if (this.isUpdate) {
+        const targetUserId = userIdFilter || this.updateData?.user_id;
+        url = `${API_BASE_URL}/profiles/${targetUserId}/role`;
+        method = "PUT";
+        body = { role: this.updateData.role };
+      }
     }
-    return { data: parsedRows, error: null };
-  }
 
-  private executeInsert() {
-    const dataArray = Array.isArray(this.insertData) ? this.insertData : [this.insertData];
-    const results: any[] = [];
+    else if (this.table === "system_settings") {
+      if (this.isSelect) {
+        url = `${API_BASE_URL}/settings`;
+      } else if (this.isInsert || this.isUpsert) {
+        url = `${API_BASE_URL}/settings`;
+        method = "POST";
+        body = this.isInsert ? this.insertData : this.upsertData;
+      }
+    }
 
-    for (const item of dataArray) {
-      const keys = Object.keys(item);
-      const vals = Object.values(item).map((val) => {
-        if (typeof val === "boolean") return val ? 1 : 0;
-        return val;
-      });
+    else if (this.table === "database_snapshots") {
+      if (this.isSelect) {
+        url = idFilter ? `${API_BASE_URL}/backup/snapshots/${idFilter}` : `${API_BASE_URL}/backup/snapshots`;
+      } else if (this.isInsert) {
+        url = `${API_BASE_URL}/backup/snapshots`;
+        method = "POST";
+        body = this.insertData;
+      } else if (this.isDelete) {
+        url = `${API_BASE_URL}/backup/snapshots/${idFilter}`;
+        method = "DELETE";
+      }
+    } 
+    
+    else if (this.table === "modbus_devices") {
+      if (this.isSelect) {
+        url = `${API_BASE_URL}/modbus/devices?device_id=${deviceIdFilter}`;
+      } else if (this.isInsert) {
+        url = `${API_BASE_URL}/modbus/devices`;
+        method = "POST";
+        body = this.insertData;
+      } else if (this.isUpdate) {
+        url = `${API_BASE_URL}/modbus/devices/${idFilter}`;
+        method = "PUT";
+        body = this.updateData;
+      } else if (this.isDelete) {
+        url = `${API_BASE_URL}/modbus/devices/${idFilter}`;
+        method = "DELETE";
+      }
+    } 
+    
+    else if (this.table === "modbus_registers") {
+      if (this.isSelect) {
+        url = `${API_BASE_URL}/modbus/registers?modbus_device_id=${deviceIdFilter}`;
+      } else if (this.isInsert || this.isUpsert) {
+        url = `${API_BASE_URL}/modbus/registers`;
+        method = "POST";
+        body = this.isInsert ? this.insertData : this.upsertData;
+      }
+    } 
+    
+    else if (this.table === "modbus_readings") {
+      if (this.isSelect) {
+        url = `${API_BASE_URL}/modbus/readings?modbus_device_id=${deviceIdFilter}`;
+        if (this.limitCount) url += `&limit=${this.limitCount}`;
+      } else if (this.isInsert) {
+        url = `${API_BASE_URL}/modbus/readings`;
+        method = "POST";
+        body = this.insertData;
+      }
+    } 
+    
+    else {
+      return { data: null, error: new Error(`Unsupported table query: ${this.table}`) };
+    }
 
-      // Generate id if missing
-      let itemId = item.id;
-      if (!itemId) {
-        itemId = `${this.table.substring(0, 3)}-${Math.random().toString(36).substring(2, 11)}`;
-        const idIdx = keys.indexOf("id");
-        if (idIdx === -1) {
-          keys.push("id");
-          vals.push(itemId);
-        } else {
-          vals[idIdx] = itemId;
+    try {
+      const options: RequestInit = {
+        method,
+        headers: getHeaders(),
+      };
+
+      if (body) {
+        options.body = JSON.stringify(body);
+      }
+
+      const res = await fetch(url, options);
+      if (res.status === 204) {
+        return { data: null, error: null };
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        return { data: null, error: new Error(data.error || "Query execution failed") };
+      }
+
+      // Custom post-processing for compatibility
+      let processedData = data;
+
+      if (this.table === "user_roles" && this.isSelect) {
+        if (userIdFilter) {
+          // Map single profile response to role object
+          const primaryRole = data.user?.roles?.[0]?.role || "user";
+          processedData = { user_id: userIdFilter, role: primaryRole };
+        } else if (Array.isArray(data)) {
+          // Map GET /profiles/roles list
+          processedData = data.map((r: any) => ({
+            id: r.id,
+            user_id: r.user_id,
+            role: r.role,
+          }));
         }
       }
 
-      const placeholders = keys.map(() => "?").join(", ");
-      const sql = `INSERT INTO ${this.table} (${keys.join(", ")}) VALUES (${placeholders})`;
+      // Handle single item wrappers
+      if (this.expectSingle && Array.isArray(processedData)) {
+        return { data: processedData[0] || null, error: null };
+      }
 
-      localDb.run(sql, vals);
-      results.push({ ...item, id: itemId });
+      return { data: processedData, error: null };
+    } catch (err: any) {
+      console.error(`REST query error [${method} ${url}]:`, err);
+      return { data: null, error: err };
     }
-
-    return { data: Array.isArray(this.insertData) ? results : results[0], error: null };
-  }
-
-  private executeUpdate() {
-    const keys = Object.keys(this.updateData);
-    const vals = Object.values(this.updateData).map((val) => {
-      if (typeof val === "boolean") return val ? 1 : 0;
-      return val;
-    });
-
-    let sql = `UPDATE ${this.table} SET ` + keys.map((k) => `${k} = ?`).join(", ");
-    const filterParams: any[] = [];
-
-    if (this.filters.length > 0) {
-      const parts = this.filters.map((f) => {
-        filterParams.push(f.val);
-        return `${f.col} ${f.op} ?`;
-      });
-      sql += ` WHERE ${parts.join(" AND ")}`;
-    }
-
-    localDb.run(sql, [...vals, ...filterParams]);
-    return { data: this.updateData, error: null };
-  }
-
-  private executeDelete() {
-    let sql = `DELETE FROM ${this.table}`;
-    const params: any[] = [];
-
-    if (this.filters.length > 0) {
-      const parts = this.filters.map((f) => {
-        params.push(f.val);
-        return `${f.col} ${f.op} ?`;
-      });
-      sql += ` WHERE ${parts.join(" AND ")}`;
-    }
-
-    localDb.run(sql, params);
-    return { data: null, error: null };
-  }
-
-  private executeUpsert() {
-    const dataArray = Array.isArray(this.upsertData) ? this.upsertData : [this.upsertData];
-    const results: any[] = [];
-
-    for (const item of dataArray) {
-      const keys = Object.keys(item);
-      const vals = Object.values(item).map((val) => {
-        if (typeof val === "boolean") return val ? 1 : 0;
-        return val;
-      });
-
-      // Simple SQLite upsert using INSERT OR REPLACE
-      const placeholders = keys.map(() => "?").join(", ");
-      const sql = `INSERT OR REPLACE INTO ${this.table} (${keys.join(", ")}) VALUES (${placeholders})`;
-
-      localDb.run(sql, vals);
-      results.push(item);
-    }
-
-    return { data: Array.isArray(this.upsertData) ? results : results[0], error: null };
   }
 }
 
-// ── Mock Realtime Channel ────────────────────────────────────────────────────
-class MockChannel {
-  on(event: string, filter: any, callback: () => void) {
+// ── Supabase Realtime Channel emulation ──────────────────────────────────────
+class RealtimeChannel {
+  private channelName: string;
+  private listeners: { event: string; filter: any; callback: (payload: any) => void }[] = [];
+  private unsubscribes: (() => void)[] = [];
+
+  constructor(name: string) {
+    this.channelName = name;
+  }
+
+  on(event: string, filter: any, callback: (payload: any) => void) {
+    this.listeners.push({ event, filter, callback });
     return this;
   }
+
   subscribe() {
+    console.log(`[WS-Client] Subscribing channel: ${this.channelName}`);
+    
+    this.listeners.forEach((listener) => {
+      // Determine the WebSocket topic
+      let topic = this.channelName;
+      
+      // If a generic channel name is used, map to the table filter
+      if (this.channelName === "dashboard-devices-realtime" || this.channelName === "devices-list-realtime") {
+        topic = "devices";
+      }
+
+      const unsubscribe = wsManager.subscribe(topic, (payload) => {
+        // Filter by event type if requested
+        if (listener.event === "*" || listener.event === payload.eventType) {
+          listener.callback(payload);
+        }
+      });
+      this.unsubscribes.push(unsubscribe);
+    });
+
     return this;
+  }
+
+  unsubscribe() {
+    console.log(`[WS-Client] Unsubscribing channel: ${this.channelName}`);
+    this.unsubscribes.forEach((unsub) => unsub());
+    this.unsubscribes = [];
   }
 }
 
 // ── Supabase Client Mock Singleton ───────────────────────────────────────────
 class SupabaseMockClient {
-  auth = new MockAuth();
+  auth = new AuthClient();
 
   from(table: string) {
-    return new MockQueryBuilder(table);
+    return new RestQueryBuilder(table);
   }
 
   channel(name: string) {
-    return new MockChannel();
+    return new RealtimeChannel(name);
   }
 
-  removeChannel(chan: any) {
-    // No-op
+  removeChannel(chan: RealtimeChannel) {
+    if (chan && typeof chan.unsubscribe === "function") {
+      chan.unsubscribe();
+    }
   }
 }
 

@@ -61,12 +61,9 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen gradient-hero flex flex-col relative overflow-hidden">
-      {/* Decorative Orbs */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary/20 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-accent/20 blur-[120px] pointer-events-none" />
-
-      <header className="flex items-center justify-between p-6 z-10">
+    <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
+      
+      <header className="flex items-center justify-between p-6 z-10 border-b border-border bg-card/85">
         <BrandLogo />
         <ThemeToggle />
       </header>
@@ -78,29 +75,28 @@ const Register = () => {
           transition={{ duration: 0.5, ease: "easeOut" }}
           className="w-full max-w-lg"
         >
-          <div className="relative group">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-accent rounded-2xl blur-lg opacity-40 group-hover:opacity-60 transition duration-1000 group-hover:duration-200" />
+          <div className="relative">
             
-            <div className="relative glass rounded-2xl p-8 md:p-10 shadow-2xl border border-white/10">
+            <div className="relative bg-card text-card-foreground rounded-2xl p-8 md:p-10 shadow-xl border border-border">
               <div className="text-center mb-8">
                 <div className="inline-flex p-3 rounded-full bg-accent/10 text-accent mb-3">
-                  <Sparkles size={20} className="animate-pulse" />
+                  <Sparkles size={20} />
                 </div>
-                <h1 className="text-3xl font-extrabold tracking-tight text-foreground mb-2 text-gradient-brand">
+                <h1 className="text-3xl font-extrabold tracking-tight text-foreground mb-2">
                   Create Account
                 </h1>
                 <p className="text-muted-foreground text-sm">Register to start managing local IoT nodes</p>
               </div>
 
-              <form onSubmit={handleRegister} className="space-y-4 font-mono text-xs">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-sans text-sm">
+              <form onSubmit={handleRegister} className="space-y-4 font-sans text-sm">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="firstName" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">First Name</Label>
-                    <Input id="firstName" placeholder="John" value={form.firstName} onChange={(e) => update("firstName", e.target.value)} required className="h-10 bg-background/50 border-white/10" />
+                    <Input id="firstName" placeholder="John" value={form.firstName} onChange={(e) => update("firstName", e.target.value)} required className="h-10 bg-background border-border text-foreground" />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="lastName" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Last Name</Label>
-                    <Input id="lastName" placeholder="Doe" value={form.lastName} onChange={(e) => update("lastName", e.target.value)} required className="h-10 bg-background/50 border-white/10" />
+                    <Input id="lastName" placeholder="Doe" value={form.lastName} onChange={(e) => update("lastName", e.target.value)} required className="h-10 bg-background border-border text-foreground" />
                   </div>
                 </div>
 
@@ -108,7 +104,7 @@ const Register = () => {
                   <Label htmlFor="regEmail" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Email Address</Label>
                   <div className="relative">
                     <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="regEmail" type="email" placeholder="you@company.com" value={form.email} onChange={(e) => update("email", e.target.value)} required className="h-10 pl-10 bg-background/50 border-white/10" />
+                    <Input id="regEmail" type="email" placeholder="you@company.com" value={form.email} onChange={(e) => update("email", e.target.value)} required className="h-10 pl-10 bg-background border-border text-foreground" />
                   </div>
                 </div>
 
@@ -116,7 +112,7 @@ const Register = () => {
                   <Label htmlFor="regPassword" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Password</Label>
                   <div className="relative">
                     <Key size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <Input id="regPassword" type={showPassword ? "text" : "password"} placeholder="Min 4 characters" value={form.password} onChange={(e) => update("password", e.target.value)} required className="h-10 pl-10 pr-10 bg-background/50 border-white/10" />
+                    <Input id="regPassword" type={showPassword ? "text" : "password"} placeholder="Min 4 characters" value={form.password} onChange={(e) => update("password", e.target.value)} required className="h-10 pl-10 pr-10 bg-background border-border text-foreground" />
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                       {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                     </button>
@@ -128,14 +124,14 @@ const Register = () => {
                     <Label htmlFor="factory" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Factory Name</Label>
                     <div className="relative">
                       <Briefcase size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                      <Input id="factory" placeholder="My Factory" value={form.factoryName} onChange={(e) => update("factoryName", e.target.value)} required className="h-10 pl-10 bg-background/50 border-white/10" />
+                      <Input id="factory" placeholder="My Factory" value={form.factoryName} onChange={(e) => update("factoryName", e.target.value)} required className="h-10 pl-10 bg-background border-border text-foreground" />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="location" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Location</Label>
                     <div className="relative">
                       <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                      <Input id="location" placeholder="City, Country" value={form.location} onChange={(e) => update("location", e.target.value)} required className="h-10 pl-10 bg-background/50 border-white/10" />
+                      <Input id="location" placeholder="City, Country" value={form.location} onChange={(e) => update("location", e.target.value)} required className="h-10 pl-10 bg-background border-border text-foreground" />
                     </div>
                   </div>
                 </div>

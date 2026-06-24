@@ -105,15 +105,14 @@ const Dashboard = () => {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6">
         
         {/* Welcome Section with visual banner */}
-        <div className="relative overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-r from-card to-background p-6 md:p-8 shadow-xl">
-          <div className="absolute top-[-50%] right-[-10%] w-[350px] h-[350px] rounded-full bg-primary/10 blur-[90px] pointer-events-none" />
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 md:p-8 shadow-md">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/15 text-primary mb-3">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/20 mb-3">
                 <Shield size={12} /> System Console Active
               </span>
               <h1 className="text-3xl font-extrabold tracking-tight text-foreground mb-2">
-                Hello, <span className="text-gradient-brand">{userName}</span>
+                Hello, <span className="text-primary">{userName}</span>
               </h1>
               <p className="text-muted-foreground text-sm max-w-lg">
                 Real-time monitoring panel for local RS-485 Modbus networks and edge IoT devices.
@@ -139,16 +138,16 @@ const Dashboard = () => {
               transition={{ delay: i * 0.08, duration: 0.4 }}
               className="group"
             >
-              <Card className="glass border-white/5 hover:border-white/10 shadow-lg hover:shadow-xl transition-all hover:translate-y-[-2px] duration-300 relative overflow-hidden">
+              <Card className="bg-card border-border hover:border-primary/50 shadow-md transition-all duration-300 relative overflow-hidden">
                 <CardContent className="p-5 flex items-center gap-4">
-                  <div className={`p-3 rounded-xl shrink-0 ${stat.bg} ${stat.color} ${stat.glow || ""}`}>
-                    <stat.icon size={22} className="group-hover:scale-110 transition duration-300" />
+                  <div className={`p-3 rounded-xl shrink-0 ${stat.bg} ${stat.color}`}>
+                    <stat.icon size={22} className="group-hover:scale-105 transition duration-300" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-2xl font-extrabold text-foreground tracking-tight">{stat.value}</p>
                     <p className="text-xs font-medium text-muted-foreground truncate">{stat.label}</p>
                     {stat.trend && (
-                      <p className="text-[10px] font-semibold text-primary/80 mt-0.5 truncate">{stat.trend}</p>
+                      <p className="text-[10px] font-semibold text-primary mt-0.5 truncate">{stat.trend}</p>
                     )}
                   </div>
                 </CardContent>
@@ -160,12 +159,12 @@ const Dashboard = () => {
         {/* Main Grid: Devices List & Quick Diagnostics Panel */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Recent Devices Card */}
-          <Card className="xl:col-span-2 border-border/50 shadow-lg bg-card/60">
+          <Card className="xl:col-span-2 border-border shadow-md bg-card">
             <CardHeader className="pb-3 border-b border-border/40">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-base flex items-center gap-2">
-                    <Cable size={18} className="text-primary animate-pulse" /> Recent Active Nodes
+                    <Cable size={18} className="text-primary" /> Recent Active Nodes
                   </CardTitle>
                   <CardDescription>Status and analog diagnostics of approved IoT gateways</CardDescription>
                 </div>
@@ -202,7 +201,7 @@ const Dashboard = () => {
                           ? [reading.analog_ch1, reading.analog_ch2, reading.analog_ch3, reading.analog_ch4]
                           : [0, 0, 0, 0];
                         return (
-                          <TableRow key={device.id} className="hover:bg-muted/25 transition-colors border-b border-border/20">
+                          <TableRow key={device.id} className="hover:bg-muted/25 transition-colors border-b border-border/40">
                             <TableCell className="py-3.5 px-4 font-semibold text-foreground">
                               <Link to={`/devices/${device.id}`} className="hover:text-primary transition-colors">
                                 {device.nickname || device.name}
@@ -242,7 +241,7 @@ const Dashboard = () => {
           </Card>
 
           {/* Quick Info & System Health Panel */}
-          <Card className="border-border/50 shadow-lg bg-card/60">
+          <Card className="border-border shadow-md bg-card">
             <CardHeader className="pb-3 border-b border-border/40">
               <CardTitle className="text-base flex items-center gap-2"><BarChart3 size={18} className="text-primary" /> Offline Database Setup</CardTitle>
               <CardDescription>System running on local browser SQLite datastore</CardDescription>
@@ -251,20 +250,20 @@ const Dashboard = () => {
               <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl space-y-2">
                 <span className="font-bold text-primary flex items-center gap-1.5"><Database size={13} /> Active Local Engine</span>
                 <p className="text-muted-foreground leading-relaxed">
-                  Supabase database has been completely removed. The app operates locally on in-browser SQLite with data persisted in <code className="bg-background/80 px-1 py-0.5 rounded font-mono">localStorage</code>.
+                  Supabase database has been completely removed. The app operates locally on in-browser SQLite with data persisted in <code className="bg-background/80 px-1 py-0.5 rounded font-mono text-[10px]">localStorage</code>.
                 </p>
               </div>
 
               <div className="space-y-2.5">
                 <span className="font-bold text-foreground block">📈 Device Network Stats</span>
                 <div className="grid grid-cols-2 gap-2 text-center">
-                  <div className="bg-muted/30 border border-white/5 p-2.5 rounded-lg">
+                  <div className="bg-muted/30 border border-border p-2.5 rounded-lg">
                     <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Online Rate</span>
                     <span className="text-lg font-bold text-success">
                       {devices.length > 0 ? `${Math.round((onlineCount / devices.length) * 100)}%` : "0%"}
                     </span>
                   </div>
-                  <div className="bg-muted/30 border border-white/5 p-2.5 rounded-lg">
+                  <div className="bg-muted/30 border border-border p-2.5 rounded-lg">
                     <span className="text-muted-foreground block text-[10px] uppercase font-semibold">Pending Approvals</span>
                     <span className="text-lg font-bold text-warning">{pendingCount} Nodes</span>
                   </div>

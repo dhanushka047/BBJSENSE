@@ -1,0 +1,190 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                      String                  @id @default(uuid())
+  email                   String                  @unique
+  password                String
+  created_at              DateTime                @default(now())
+  profile                 Profile?
+  roles                   UserRole[]
+  ownedDevices            Device[]                @relation("device_owner")
+  approvedDevices         Device[]                @relation("device_approver")
+  triggeredEvents         DeviceEvent[]
+  notificationPreferences NotificationPreference?
+  snapshots               DatabaseSnapshot[]
+}
+
+model Profile {
+  id                  String   @id @default(uuid())
+  user_id             String   @unique
+  first_name          String   @default("")
+  last_name           String   @default("")
+  email               String   @default("")
+  factory_name        String   @default("")
+  location            String   @default("")
+  subscription_status String   @default("active")
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+  user                User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model UserRole {
+  id      String @id @default(uuid())
+  user_id String
+  role    String @default("user")
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, role])
+}
+
+model Device {
+  id              String                @id @default(uuid())
+  mac_address     String                @unique
+  name            String                @default("New Device")
+  nickname        String?               @default("")
+  owner_id        String?
+  approval_status String                @default("pending") // 'pending', 'approved', 'rejected'
+  approved_by     String?
+  is_online       Boolean               @default(false)
+  last_seen_at    DateTime?
+  modbus_address  String?               @default("0x01")
+  created_at      DateTime              @default(now())
+  updated_at      DateTime              @updatedAt
+  owner           User?                 @relation("device_owner", fields: [owner_id], references: [id], onDelete: SetNull)
+  approver        User?                 @relation("device_approver", fields: [approved_by], references: [id], onDelete: SetNull)
+  configs         DeviceChannelConfig[]
+  readings        DeviceReading[]
+  events          DeviceEvent[]
+  modbusDevices   ModbusDevice[]
+}
+
+model DeviceChannelConfig {
+  id             String   @id @default(uuid())
+  device_id      String
+  channel_type   String   // 'analog', 'digital_in', 'digital_out'
+  channel_number Int
+  label          String   @default("")
+  data_mode      String?  @default("0-10V")
+  unit           String?  @default("")
+  min_value      Float?   @default(0)
+  max_value      Float?   @default(10)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  device         Device   @relation(fields: [device_id], references: [id], onDelete: Cascade)
+
+  @@unique([device_id, channel_type, channel_number])
+}
+
+model DeviceReading {
+  id              String   @id @default(uuid())
+  device_id       String
+  analog_ch1      Float?   @default(0)
+  analog_ch1_mode String?  @default("0-10V")
+  analog_ch2      Float?   @default(0)
+  analog_ch2_mode String?  @default("0-10V")
+  analog_ch3      Float?   @default(0)
+  analog_ch3_mode String?  @default("0-10V")
+  analog_ch4      Float?   @default(0)
+  analog_ch4_mode String?  @default("0-10V")
+  digital_in1     Boolean? @default(false)
+  digital_in2     Boolean? @default(false)
+  digital_in3     Boolean? @default(false)
+  digital_in4     Boolean? @default(false)
+  digital_out1    Boolean? @default(false)
+  digital_out2    Boolean? @default(false)
+  digital_out3    Boolean? @default(false)
+  digital_out4    Boolean? @default(false)
+  rtc_time        DateTime?
+  created_at      DateTime @default(now())
+  device          Device   @relation(fields: [device_id], references: [id], onDelete: Cascade)
+}
+
+model DeviceEvent {
+  id           String   @id @default(uuid())
+  device_id    String
+  event_type   String   @default("info") // 'info', 'alert', 'critical'
+  message      String
+  triggered_by String?
+  created_at   DateTime @default(now())
+  device       Device   @relation(fields: [device_id], references: [id], onDelete: Cascade)
+  trigger      User?    @relation(fields: [triggered_by], references: [id], onDelete: SetNull)
+}
+
+model NotificationPreference {
+  id               String   @id @default(uuid())
+  user_id          String   @unique
+  email_on_offline Boolean  @default(true)
+  email_on_alert   Boolean  @default(true)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  user             User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model DatabaseSnapshot {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?  @default("")
+  snapshot_data String   // JSON string of database records
+  created_by    String
+  created_at    DateTime @default(now())
+  creator       User     @relation(fields: [created_by], references: [id], onDelete: Cascade)
+}
+
+model ModbusDevice {
+  id           String           @id @default(uuid())
+  device_id    String
+  name         String
+  manufacturer String?          @default("")
+  slave_id     Int              @default(1)
+  baud_rate    Int              @default(9600)
+  parity       String           @default("none")
+  stop_bits    Int              @default(1)
+  data_bits    Int              @default(8)
+  created_at   DateTime         @default(now())
+  updated_at   DateTime         @updatedAt
+  device       Device           @relation(fields: [device_id], references: [id], onDelete: Cascade)
+  registers    ModbusRegister[]
+  readings     ModbusReading[]
+}
+
+model ModbusRegister {
+  id               String          @id @default(uuid())
+  modbus_device_id String
+  address          Int
+  function_code    Int             @default(3)
+  label            String
+  data_type        String          @default("float32_be")
+  scale            Float           @default(1.0)
+  unit             String?         @default("")
+  group_name       String?         @default("")
+  display_order    Int             @default(0)
+  created_at       DateTime        @default(now())
+  updated_at       DateTime        @updatedAt
+  modbusDevice     ModbusDevice    @relation(fields: [modbus_device_id], references: [id], onDelete: Cascade)
+  readings         ModbusReading[]
+
+  @@unique([modbus_device_id, address, function_code])
+}
+
+model ModbusReading {
+  id               String         @id @default(uuid())
+  modbus_device_id String
+  register_id      String
+  raw_value        String?        @default("")
+  scaled_value     Float?         @default(0.0)
+  created_at       DateTime       @default(now())
+  modbusDevice     ModbusDevice   @relation(fields: [modbus_device_id], references: [id], onDelete: Cascade)
+  register         ModbusRegister @relation(fields: [register_id], references: [id], onDelete: Cascade)
+}
+
+model SystemSetting {
+  key   String @id
+  value String
+}

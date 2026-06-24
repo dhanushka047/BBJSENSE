@@ -42,12 +42,9 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen gradient-hero flex flex-col relative overflow-hidden">
-      {/* Decorative Glowing Orbs */}
-      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-primary/20 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-accent/20 blur-[120px] pointer-events-none" />
+    <div className="min-h-screen bg-background flex flex-col relative overflow-hidden">
       
-      <header className="flex items-center justify-between p-6 z-10">
+      <header className="flex items-center justify-between p-6 z-10 border-b border-border bg-card/85">
         <BrandLogo />
         <ThemeToggle />
       </header>
@@ -59,19 +56,12 @@ const Login = () => {
           transition={{ duration: 0.5, ease: "easeOut" }}
           className="w-full max-w-md"
         >
-          <div className="relative group">
-            {/* Colored border glowing effect */}
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary to-accent rounded-2xl blur-lg opacity-40 group-hover:opacity-60 transition duration-1000 group-hover:duration-200" />
+          <div className="relative">
             
-            <div className="relative glass rounded-2xl p-8 md:p-10 shadow-2xl border border-white/10">
-              <div className="text-center mb-8">
-                <div className="inline-flex p-3 rounded-full bg-primary/10 text-primary mb-3">
-                  <Sparkles size={20} className="animate-pulse" />
-                </div>
-                <h1 className="text-3xl font-extrabold tracking-tight text-foreground mb-2 text-gradient-brand">
-                  BBJSENSE Portal
-                </h1>
-                <p className="text-muted-foreground text-sm">Sign in to control and monitor RS-485 IoT devices</p>
+            <div className="relative bg-card text-card-foreground rounded-2xl p-8 md:p-10 shadow-md border border-border">
+              <div className="text-center mb-8 flex flex-col items-center">
+                <BrandLogo size="large" />
+                <p className="text-muted-foreground text-xs mt-3 tracking-wide">Industrial IoT Gateway Management Console</p>
               </div>
 
               <form onSubmit={handleLogin} className="space-y-5">
@@ -86,7 +76,7 @@ const Login = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="h-11 pl-11 bg-background/50 border-white/10 focus:border-primary/50 focus:ring-primary/20 transition-all font-sans"
+                      className="h-11 pl-11 bg-background border-border focus:border-primary/50 focus:ring-primary/20 transition-all font-sans text-foreground"
                     />
                   </div>
                 </div>
@@ -94,7 +84,7 @@ const Login = () => {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/80">Password</Label>
-                    <Link to="/forgot-password" className="text-xs text-primary/90 hover:text-primary hover:underline transition-all">Forgot?</Link>
+                    <Link to="/forgot-password" className="text-xs text-primary hover:text-primary/80 hover:underline transition-all">Forgot?</Link>
                   </div>
                   <div className="relative">
                     <Key size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -105,7 +95,7 @@ const Login = () => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="h-11 pl-11 pr-10 bg-background/50 border-white/10 focus:border-primary/50 focus:ring-primary/20 transition-all font-sans"
+                      className="h-11 pl-11 pr-10 bg-background border-border focus:border-primary/50 focus:ring-primary/20 transition-all font-sans text-foreground"
                     />
                     <button
                       type="button"
@@ -117,7 +107,7 @@ const Login = () => {
                   </div>
                 </div>
 
-                <Button type="submit" disabled={loading} className="w-full h-11 gradient-brand text-primary-foreground font-semibold hover:shadow-lg hover:shadow-primary/20 hover:scale-[1.01] transition-all">
+                <Button type="submit" disabled={loading} className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold hover:shadow transition-all">
                   {loading ? (
                     <div className="w-5 h-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
                   ) : (
@@ -127,29 +117,29 @@ const Login = () => {
               </form>
 
               {/* Demo Autocompletion Panel */}
-              <div className="mt-6 p-4 rounded-xl bg-muted/30 border border-white/5 space-y-2.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 block">💡 Quick Login Credentials (SQLite Seeding)</span>
+              <div className="mt-6 p-4 rounded-xl bg-muted/20 border border-border/50 space-y-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Quick Access (Demo Seeding)</span>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 text-xs h-8 bg-background/30 hover:bg-background/80"
+                    className="flex-1 text-xs h-8 bg-background border-border hover:bg-muted text-foreground"
                     onClick={() => autofillUser('admin')}
                   >
-                    👑 Admin Demo
+                    Admin Console
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 text-xs h-8 bg-background/30 hover:bg-background/80"
+                    className="flex-1 text-xs h-8 bg-background border-border hover:bg-muted text-foreground"
                     onClick={() => autofillUser('user')}
                   >
-                    🛠️ User Demo
+                    User Panel
                   </Button>
                 </div>
               </div>
 
-              <p className="text-center text-sm text-muted-foreground mt-6">
+              <p className="text-center text-xs text-muted-foreground mt-6">
                 Need account authorization?{" "}
                 <Link to="/register" className="text-primary font-semibold hover:underline">Register now</Link>
               </p>

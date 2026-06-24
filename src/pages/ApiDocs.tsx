@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Copy, Check, Code, Database, Wifi, Send, Shield, Settings } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import AppLayout from "@/components/AppLayout";
@@ -16,11 +16,11 @@ function CodeBlock({ code, language = "json" }: { code: string; language?: strin
 
   return (
     <div className="relative group">
-      <pre className="bg-muted rounded-lg p-4 overflow-x-auto text-sm font-mono text-foreground border border-border">
+      <pre className="bg-background/40 rounded-xl p-4 overflow-x-auto text-xs font-mono text-foreground border border-border/40 max-h-[450px] scrollbar-thin">
         <code>{code}</code>
       </pre>
-      <button onClick={handleCopy} className="absolute top-2 right-2 p-1.5 rounded-md bg-card border border-border text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-        {copied ? <Check size={14} /> : <Copy size={14} />}
+      <button onClick={handleCopy} className="absolute top-2 right-2 p-1.5 rounded-md bg-card/75 border border-border/20 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+        {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
       </button>
     </div>
   );
@@ -35,32 +35,32 @@ function EndpointCard({ method, path, description, requestBody, responseBody, au
   auth?: boolean;
 }) {
   const methodColors: Record<string, string> = {
-    POST: "bg-success/10 text-success",
-    GET: "bg-info/10 text-info",
-    PUT: "bg-warning/10 text-warning",
-    DELETE: "bg-destructive/10 text-destructive",
+    POST: "bg-primary/15 text-primary border border-primary/25",
+    GET: "bg-success/15 text-success border border-success/25",
+    PUT: "bg-warning/15 text-warning border border-warning/25",
+    DELETE: "bg-destructive/15 text-destructive border border-destructive/25",
   };
 
   return (
-    <Card className="border-border/50">
-      <CardHeader className="pb-3">
+    <Card className="border border-border bg-card shadow-sm relative overflow-hidden">
+      <CardHeader className="pb-3 border-b border-border/40 bg-muted/10">
         <div className="flex items-center gap-3 flex-wrap">
-          <Badge className={`${methodColors[method]} font-mono text-xs font-bold border-0`}>{method}</Badge>
-          <code className="text-sm font-mono text-foreground">{path}</code>
-          {auth && <Badge variant="outline" className="text-xs gap-1"><Shield size={10} /> Auth Required</Badge>}
+          <Badge className={`${methodColors[method]} font-mono text-[10px] font-bold border`}>{method}</Badge>
+          <code className="text-xs font-mono text-foreground bg-background/30 px-2 py-0.5 rounded border border-border/20">{path}</code>
+          {auth && <Badge variant="outline" className="text-[10px] gap-1 font-semibold border-border"><Shield size={10} /> Auth Required</Badge>}
         </div>
-        <p className="text-sm text-muted-foreground mt-1">{description}</p>
+        <p className="text-sm text-muted-foreground mt-2">{description}</p>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-4 pt-4">
         {requestBody && (
           <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Request Body</p>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">JSON Request Body Payload</p>
             <CodeBlock code={requestBody} />
           </div>
         )}
         {responseBody && (
           <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Response</p>
+            <p className="text-[10px] font-bold text-primary uppercase tracking-wider mb-2">JSON Response Format</p>
             <CodeBlock code={responseBody} />
           </div>
         )}
@@ -70,70 +70,102 @@ function EndpointCard({ method, path, description, requestBody, responseBody, au
 }
 
 const ApiDocs = () => {
-  const baseUrl = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co`;
+  const baseUrl = `http://localhost:5001/api`;
 
   return (
     <AppLayout>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 max-w-4xl">
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }} className="space-y-6 max-w-4xl">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Code size={24} className="text-primary" /> API Documentation
+            <Code size={24} className="text-primary" /> Developer API & Docs
           </h1>
-          <p className="text-sm text-muted-foreground">ESP32 device integration endpoints and data formats</p>
+          <p className="text-sm text-muted-foreground">ESP32 gateway microcontroller payload schemas and synchronization parameters</p>
         </div>
 
         {/* Base URL */}
-        <Card className="gradient-card border-primary/20">
+        <Card className="border border-border bg-card shadow-sm">
           <CardContent className="p-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Base URL</p>
-            <CodeBlock code={`${baseUrl}/functions/v1`} language="text" />
+            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-2">Active Local Endpoint Base URL</p>
+            <CodeBlock code={baseUrl} language="text" />
           </CardContent>
         </Card>
 
         <Tabs defaultValue="ingestion" className="space-y-4">
-          <TabsList className="bg-muted flex-wrap">
-            <TabsTrigger value="ingestion"><Send size={14} className="mr-1.5" /> Data Ingestion</TabsTrigger>
-            <TabsTrigger value="config"><Settings size={14} className="mr-1.5" /> Device Config Sync</TabsTrigger>
-            <TabsTrigger value="schema"><Database size={14} className="mr-1.5" /> Data Schema</TabsTrigger>
-            <TabsTrigger value="packet"><Code size={14} className="mr-1.5" /> Packet Format</TabsTrigger>
-            <TabsTrigger value="esp32"><Wifi size={14} className="mr-1.5" /> ESP32 Example</TabsTrigger>
+          <TabsList className="bg-muted/40 p-1 rounded-xl flex-wrap h-auto">
+            <TabsTrigger value="ingestion" className="rounded-lg text-xs font-semibold"><Send size={13} className="mr-1.5" /> Ingest Telemetry</TabsTrigger>
+            <TabsTrigger value="config" className="rounded-lg text-xs font-semibold"><Settings size={13} className="mr-1.5" /> Configuration Sync</TabsTrigger>
+            <TabsTrigger value="schema" className="rounded-lg text-xs font-semibold"><Database size={13} className="mr-1.5" /> DB Schema</TabsTrigger>
+            <TabsTrigger value="packet" className="rounded-lg text-xs font-semibold"><Code size={13} className="mr-1.5" /> JSON Reference</TabsTrigger>
+            <TabsTrigger value="esp32" className="rounded-lg text-xs font-semibold"><Wifi size={13} className="mr-1.5" /> ESP32-S3 Setup</TabsTrigger>
           </TabsList>
 
           <TabsContent value="ingestion" className="space-y-4">
             <EndpointCard
               method="POST"
-              path="/device-data"
-              description="Submit device sensor readings. Called by the ESP32 board. Mode is auto-detected if not provided (values >10 = 4-20mA, ≤10 = 0-10V)."
+              path="/device-readings"
+              description="Sends telemetry values from a registered edge gateway node. The system updates the device's online status, logs the readings in SQLite/MySQL, and broadcasts the event in real-time to active dashboard clients over WebSockets."
               auth={false}
               requestBody={`{
-  "mac_address": "AA:BB:CC:DD:EE:FF",
-  "analog": {
-    "ch1": { "value": 4.25, "mode": "0-10V" },
-    "ch2": { "value": 12.5, "mode": "4-20mA" },
-    "ch3": { "value": 7.80 },
-    "ch4": { "value": 18.2 }
-  },
-  "digital_in": {
-    "di1": true,
-    "di2": false,
-    "di3": true,
-    "di4": false
-  },
-  "digital_out": {
-    "do1": true,
-    "do2": false,
-    "do3": true,
-    "do4": false
-  },
-  "rtc_time": "2026-02-23T14:32:05Z"
-}
-
-// NOTE: "mode" field is optional.
-// Auto-detection: value > 10 → "4-20mA", value ≤ 10 → "0-10V"`}
+  "device_id": "8fbbf427-68a4-480a-8e5c-57922ef8a75a",
+  "analog_ch1": 75.4,
+  "analog_ch1_mode": "4-20mA",
+  "analog_ch2": 6.2,
+  "analog_ch2_mode": "0-10V",
+  "analog_ch3": 45.1,
+  "analog_ch3_mode": "0-10V",
+  "analog_ch4": 23.4,
+  "analog_ch4_mode": "0-10V",
+  "digital_in1": true,
+  "digital_in2": false,
+  "digital_in3": true,
+  "digital_in4": false,
+  "digital_out1": true,
+  "digital_out2": false,
+  "digital_out3": false,
+  "digital_out4": false,
+  "rtc_time": "2026-06-24T13:30:00Z"
+}`}
               responseBody={`{
-  "success": true,
-  "device_id": "uuid-of-device",
-  "reading_id": "uuid-of-reading"
+  "id": "ecca449b-6681-4ce3-8178-68288792a161",
+  "device_id": "8fbbf427-68a4-480a-8e5c-57922ef8a75a",
+  "analog_ch1": 75.4,
+  "analog_ch1_mode": "4-20mA",
+  "analog_ch2": 6.2,
+  "analog_ch2_mode": "0-10V",
+  "analog_ch3": 45.1,
+  "analog_ch3_mode": "0-10V",
+  "analog_ch4": 23.4,
+  "analog_ch4_mode": "0-10V",
+  "digital_in1": true,
+  "digital_in2": false,
+  "digital_in3": true,
+  "digital_in4": false,
+  "digital_out1": true,
+  "digital_out2": false,
+  "digital_out3": false,
+  "digital_out4": false,
+  "rtc_time": "2026-06-24T13:30:00.000Z",
+  "created_at": "2026-06-24T08:00:00.000Z"
+}`}
+            />
+
+            <EndpointCard
+              method="POST"
+              path="/device-events"
+              description="Logs diagnostics, thresholds triggers, or system anomalies. These are logged in the events log and broadcasted instantly to the 'device-events-device_id' WebSocket topic."
+              auth={true}
+              requestBody={`{
+  "device_id": "8fbbf427-68a4-480a-8e5c-57922ef8a75a",
+  "event_type": "alert", // 'info' | 'alert' | 'critical'
+  "message": "Boiler temperature critical threshold exceeded! Reading: 85.3 °C (Max: 80.0 °C)"
+}`}
+              responseBody={`{
+  "id": "383eb04e-9914-434b-bb6a-2cee20c1efca",
+  "device_id": "8fbbf427-68a4-480a-8e5c-57922ef8a75a",
+  "event_type": "alert",
+  "message": "Boiler temperature critical threshold exceeded! Reading: 85.3 °C (Max: 80.0 °C)",
+  "triggered_by": "user-uuid-2222",
+  "created_at": "2026-06-24T08:05:00.000Z"
 }`}
             />
           </TabsContent>
@@ -141,408 +173,258 @@ const ApiDocs = () => {
           <TabsContent value="config" className="space-y-4">
             <EndpointCard
               method="GET"
-              path="/device-data?mac=AA:BB:CC:DD:EE:FF"
-              description="Get device channel configuration and pending digital output states. Polled by ESP32 to sync settings from the cloud."
-              auth={false}
-              responseBody={`{
-  "device_id": "uuid",
-  "modbus_address": "0x01",
-  "channel_config": [
-    {
-      "channel_type": "analog",
-      "channel_number": 1,
-      "label": "Pressure",
-      "data_mode": "4-20mA",
-      "unit": "mA",
-      "min_value": 4,
-      "max_value": 20
-    },
-    {
-      "channel_type": "digital_in",
-      "channel_number": 1,
-      "label": "Door Sensor",
-      "data_mode": "binary",
-      "unit": "",
-      "min_value": 0,
-      "max_value": 1
-    }
-  ],
-  "digital_out": {
-    "do1": true,
-    "do2": false,
-    "do3": true,
-    "do4": false
+              path="/device-channel-config?device_id=8fbbf427-68a4-480a-8e5c-57922ef8a75a"
+              description="Invoked by the gateway node or client to fetch dynamic channel labels, units, and custom scaling configurations for analog and digital I/O."
+              auth={true}
+              responseBody={`[
+  {
+    "id": "cfg-uuid-1111",
+    "device_id": "8fbbf427-68a4-480a-8e5c-57922ef8a75a",
+    "channel_type": "analog",
+    "channel_number": 1,
+    "label": "Boiler Temperature",
+    "data_mode": "4-20mA",
+    "unit": "°C",
+    "min_value": 0,
+    "max_value": 150,
+    "created_at": "2026-06-24T08:00:00.000Z",
+    "updated_at": "2026-06-24T08:00:00.000Z"
+  },
+  {
+    "id": "cfg-uuid-2222",
+    "device_id": "8fbbf427-68a4-480a-8e5c-57922ef8a75a",
+    "channel_type": "digital_in",
+    "channel_number": 1,
+    "label": "Safety Gate Interlock",
+    "data_mode": "binary",
+    "unit": "",
+    "min_value": 0,
+    "max_value": 1,
+    "created_at": "2026-06-24T08:00:00.000Z",
+    "updated_at": "2026-06-24T08:00:00.000Z"
   }
-}
-
-// ESP32 polls this endpoint periodically to:
-// 1. Get latest channel labels and modes
-// 2. Get pending digital output commands
-// 3. Get modbus address updates`}
+]`}
             />
 
-            <Card className="border-primary/20">
-              <CardContent className="p-4 text-sm text-muted-foreground space-y-2">
-                <p><strong className="text-foreground">Sync Flow:</strong></p>
-                <ol className="list-decimal list-inside space-y-1">
-                  <li>User configures channel labels, modes, modbus address in the web UI</li>
-                  <li>Configuration is saved to the cloud database</li>
-                  <li>ESP32 polls <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-foreground">GET /device-data?mac=...</code> every 30s</li>
-                  <li>ESP32 applies received config (channel modes, DO states, modbus addr)</li>
-                  <li>ESP32 sends data back with <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-foreground">POST /device-data</code> using the updated modes</li>
-                </ol>
+            <EndpointCard
+              method="POST"
+              path="/devices"
+              description="Registers a new hardware gateway node under the authenticated user. Newly registered nodes default to 'pending' state and must be approved by an administrator."
+              auth={true}
+              requestBody={`{
+  "mac_address": "00:1A:2B:3C:4D:5E",
+  "name": "Gateway Node D",
+  "nickname": "Assembly Line 4 Controller",
+  "modbus_address": "0x04"
+}`}
+              responseBody={`{
+  "id": "d27f85ae-78c2-43cb-8b1c-dcdc5a000cba",
+  "mac_address": "00:1A:2B:3C:4D:5E",
+  "name": "Gateway Node D",
+  "nickname": "Assembly Line 4 Controller",
+  "owner_id": "user-uuid-2222",
+  "approval_status": "pending",
+  "is_online": false,
+  "modbus_address": "0x04",
+  "created_at": "2026-06-24T08:10:00.000Z",
+  "updated_at": "2026-06-24T08:10:00.000Z"
+}`}
+            />
+
+            <Card className="border border-border bg-card shadow-sm">
+              <CardHeader className="pb-2 border-b border-border/40">
+                <CardTitle className="text-sm font-semibold">Synchronization Pipeline Workflow</CardTitle>
+              </CardHeader>
+              <CardContent className="pt-4 text-xs text-muted-foreground space-y-2.5 leading-relaxed font-sans">
+                <p>1. The dashboard administrator updates channel labels, active scaling limits, or Modbus registers mappings in the UI.</p>
+                <p>2. Configuration parameters are instantly written to the backend database (SQLite/MySQL).</p>
+                <p>3. The ESP32 node polls the <code className="bg-background/80 px-1.5 py-0.5 rounded font-mono text-[10px]">GET /api/device-channel-config?device_id=...</code> endpoint at periodic intervals (e.g., 15s-30s).</p>
+                <p>4. The MCU decodes the JSON payload, applies relays configuration, and updates its local memory mapping.</p>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="schema" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Device Readings Schema</CardTitle>
+            <Card className="border border-border bg-card shadow-sm">
+              <CardHeader className="pb-3 border-b border-border/40">
+                <CardTitle className="text-sm font-semibold text-foreground">Device Readings Relational Schema (Prisma / SQLite / MySQL)</CardTitle>
               </CardHeader>
-              <CardContent>
-                <CodeBlock code={`device_readings {
-  id            UUID        PRIMARY KEY
-  device_id     UUID        REFERENCES devices(id)
-  
-  // Analog Channels (4x)
-  analog_ch1       REAL     // raw sensor value
-  analog_ch1_mode  TEXT     // "0-10V" | "4-20mA" (auto-detected)
-  analog_ch2       REAL
-  analog_ch2_mode  TEXT
-  analog_ch3       REAL
-  analog_ch3_mode  TEXT
-  analog_ch4       REAL
-  analog_ch4_mode  TEXT
-  
-  // Digital Inputs (4x)
-  digital_in1      BOOLEAN
-  digital_in2      BOOLEAN
-  digital_in3      BOOLEAN
-  digital_in4      BOOLEAN
-  
-  // Digital Outputs (4x)
-  digital_out1     BOOLEAN
-  digital_out2     BOOLEAN
-  digital_out3     BOOLEAN
-  digital_out4     BOOLEAN
-  
-  // Timestamps
-  rtc_time         TIMESTAMPTZ
-  created_at       TIMESTAMPTZ
+              <CardContent className="pt-4">
+                <CodeBlock code={`model DeviceReading {
+  id              String   @id @default(uuid())
+  device_id       String
+  analog_ch1      Float?   @default(0)
+  analog_ch1_mode String?  @default("0-10V")
+  analog_ch2      Float?   @default(0)
+  analog_ch2_mode String?  @default("0-10V")
+  analog_ch3      Float?   @default(0)
+  analog_ch3_mode String?  @default("0-10V")
+  analog_ch4      Float?   @default(0)
+  analog_ch4_mode String?  @default("0-10V")
+  digital_in1     Boolean? @default(false)
+  digital_in2     Boolean? @default(false)
+  digital_in3     Boolean? @default(false)
+  digital_in4     Boolean? @default(false)
+  digital_out1    Boolean? @default(false)
+  digital_out2    Boolean? @default(false)
+  digital_out3    Boolean? @default(false)
+  digital_out4    Boolean? @default(false)
+  rtc_time        DateTime?
+  created_at      DateTime @default(now())
+  device          Device   @relation(fields: [device_id], references: [id], onDelete: Cascade)
 }`} />
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Channel Configuration Schema</CardTitle>
+            <Card className="border border-border bg-card shadow-sm">
+              <CardHeader className="pb-3 border-b border-border/40">
+                <CardTitle className="text-sm font-semibold text-foreground">Channel Configuration Relational Schema (Prisma / SQLite / MySQL)</CardTitle>
               </CardHeader>
-              <CardContent>
-                <CodeBlock code={`device_channel_config {
-  id              UUID     PRIMARY KEY
-  device_id       UUID     REFERENCES devices(id) ON DELETE CASCADE
-  channel_type    TEXT     "analog" | "digital_in" | "digital_out"
-  channel_number  INT      1-4
-  label           TEXT     user-defined label
-  data_mode       TEXT     "0-10V" | "4-20mA" | "binary"
-  unit            TEXT     "V" | "mA" | ""
-  min_value       REAL     minimum range
-  max_value       REAL     maximum range
-  
-  UNIQUE(device_id, channel_type, channel_number)
-}`} />
-              </CardContent>
-            </Card>
+              <CardContent className="pt-4">
+                <CodeBlock code={`model DeviceChannelConfig {
+  id             String   @id @default(uuid())
+  device_id      String
+  channel_type   String   // 'analog', 'digital_in', 'digital_out'
+  channel_number Int
+  label          String   @default("")
+  data_mode      String?  @default("0-10V")
+  unit           String?  @default("")
+  min_value      Float?   @default(0)
+  max_value      Float?   @default(10)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+  device         Device   @relation(fields: [device_id], references: [id], onDelete: Cascade)
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Devices Schema</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CodeBlock code={`devices {
-  id               UUID        PRIMARY KEY
-  mac_address      TEXT        UNIQUE NOT NULL
-  name             TEXT
-  nickname         TEXT
-  owner_id         UUID
-  approval_status  ENUM        "pending" | "approved" | "rejected"
-  approved_by      UUID
-  is_online        BOOLEAN
-  last_seen_at     TIMESTAMPTZ
-  modbus_address   TEXT
-  created_at       TIMESTAMPTZ
-  updated_at       TIMESTAMPTZ
+  @@unique([device_id, channel_type, channel_number])
 }`} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Value Ranges</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border text-muted-foreground">
-                        <th className="text-left py-2 px-3 font-medium">Channel Type</th>
-                        <th className="text-left py-2 px-3 font-medium">Mode</th>
-                        <th className="text-left py-2 px-3 font-medium">Range</th>
-                        <th className="text-left py-2 px-3 font-medium">Unit</th>
-                        <th className="text-left py-2 px-3 font-medium">Auto-Detect</th>
-                      </tr>
-                    </thead>
-                    <tbody className="font-mono text-xs">
-                      <tr className="border-b border-border/50"><td className="py-2 px-3">Analog</td><td className="py-2 px-3">Voltage</td><td className="py-2 px-3">0.00 - 10.00</td><td className="py-2 px-3">V</td><td className="py-2 px-3">value ≤ 10</td></tr>
-                      <tr className="border-b border-border/50"><td className="py-2 px-3">Analog</td><td className="py-2 px-3">Current</td><td className="py-2 px-3">4.00 - 20.00</td><td className="py-2 px-3">mA</td><td className="py-2 px-3">value &gt; 10</td></tr>
-                      <tr className="border-b border-border/50"><td className="py-2 px-3">Digital In</td><td className="py-2 px-3">Binary</td><td className="py-2 px-3">true / false</td><td className="py-2 px-3">-</td><td className="py-2 px-3">-</td></tr>
-                      <tr><td className="py-2 px-3">Digital Out</td><td className="py-2 px-3">Binary</td><td className="py-2 px-3">true / false</td><td className="py-2 px-3">-</td><td className="py-2 px-3">-</td></tr>
-                    </tbody>
-                  </table>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="packet" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Complete JSON Packet Format</CardTitle>
+            <Card className="border border-border bg-card shadow-sm">
+              <CardHeader className="pb-3 border-b border-border/40">
+                <CardTitle className="text-sm font-semibold text-foreground">Unified Ingestion Payload Reference Packet JSON</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Full packet specification for ESP32 → Cloud communication. Save this as a reference JSON file.
-                </p>
+              <CardContent className="pt-4">
                 <CodeBlock code={`{
-  "$schema": "BBJSENSE Data Packet v1.0",
-  
-  "mac_address": "AA:BB:CC:DD:EE:FF",
-  
-  "analog": {
-    "ch1": {
-      "value": 4.25,
-      "mode": "0-10V"
-    },
-    "ch2": {
-      "value": 12.5,
-      "mode": "4-20mA"
-    },
-    "ch3": {
-      "value": 7.80,
-      "mode": "0-10V"
-    },
-    "ch4": {
-      "value": 18.2,
-      "mode": "4-20mA"
-    }
-  },
-  
-  "digital_in": {
-    "di1": true,
-    "di2": false,
-    "di3": true,
-    "di4": false
-  },
-  
-  "digital_out": {
-    "do1": true,
-    "do2": false,
-    "do3": true,
-    "do4": false
-  },
-  
-  "rtc_time": "2026-02-23T14:32:05Z"
-}
-
-// FIELD REFERENCE:
-// ─────────────────────────────────────────
-// mac_address  (required) Device MAC, uppercase, colon-separated
-// analog.chN   (optional) Analog channel 1-4
-//   .value     (required) Float, raw sensor reading
-//   .mode      (optional) "0-10V" or "4-20mA"
-//              Auto-detected if omitted: >10 → 4-20mA, ≤10 → 0-10V
-// digital_in   (optional) Digital inputs 1-4, boolean
-// digital_out  (optional) Digital outputs 1-4, boolean
-// rtc_time     (optional) ISO 8601 timestamp from device RTC`} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Config Sync Response Format</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Response from <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-foreground">GET /device-data?mac=...</code> — used by ESP32 to sync configuration.
-                </p>
-                <CodeBlock code={`{
-  "device_id": "550e8400-e29b-41d4-a716-446655440000",
-  "modbus_address": "0x01",
-  
-  "channel_config": [
-    {
-      "channel_type": "analog",
-      "channel_number": 1,
-      "label": "Pressure",
-      "data_mode": "4-20mA",
-      "unit": "mA",
-      "min_value": 4.0,
-      "max_value": 20.0
-    },
-    {
-      "channel_type": "analog",
-      "channel_number": 2,
-      "label": "Flow Rate",
-      "data_mode": "0-10V",
-      "unit": "V",
-      "min_value": 0.0,
-      "max_value": 10.0
-    },
-    {
-      "channel_type": "digital_in",
-      "channel_number": 1,
-      "label": "Door Sensor",
-      "data_mode": "binary",
-      "unit": "",
-      "min_value": 0,
-      "max_value": 1
-    },
-    {
-      "channel_type": "digital_out",
-      "channel_number": 1,
-      "label": "Relay 1",
-      "data_mode": "binary",
-      "unit": "",
-      "min_value": 0,
-      "max_value": 1
-    }
-  ],
-  
-  "digital_out": {
-    "do1": true,
-    "do2": false,
-    "do3": true,
-    "do4": false
-  }
+  "$schema": "BBJSENSE Data Payload Specification v1.1",
+  "device_id": "8fbbf427-68a4-480a-8e5c-57922ef8a75a",
+  "analog_ch1": 42.5,
+  "analog_ch1_mode": "4-20mA",
+  "analog_ch2": 1.25,
+  "analog_ch2_mode": "0-10V",
+  "analog_ch3": 0.0,
+  "analog_ch3_mode": "0-10V",
+  "analog_ch4": 0.0,
+  "analog_ch4_mode": "0-10V",
+  "digital_in1": true,
+  "digital_in2": false,
+  "digital_in3": true,
+  "digital_in4": false,
+  "digital_out1": true,
+  "digital_out2": false,
+  "digital_out3": false,
+  "digital_out4": false,
+  "rtc_time": "2026-06-24T13:30:00Z"
 }`} />
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="esp32" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">ESP32 Arduino Example (HTTP POST + Config Sync)</CardTitle>
+            <Card className="border border-border bg-card shadow-sm">
+              <CardHeader className="pb-3 border-b border-border/40">
+                <CardTitle className="text-sm font-semibold text-foreground">Arduino C++ HTTP Client Ingestion & Polling Example</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-4">
                 <CodeBlock code={`#include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
-const char* BASE_URL = "${baseUrl}/functions/v1/device-data";
-const char* MAC_ADDR = "AA:BB:CC:DD:EE:FF";
+const char* WIFI_SSID = "Factory_Boiler_Room_SSID";
+const char* WIFI_PASS = "FactorySecurePassword123";
+// Replace with your Express server's IP address and Port
+const char* API_BASE_URL = "http://192.168.1.100:5001/api"; 
+const char* DEVICE_UUID = "8fbbf427-68a4-480a-8e5c-57922ef8a75a";
 
-// Channel modes (synced from cloud)
-String ch1_mode = "0-10V";
-String ch2_mode = "4-20mA";
-String ch3_mode = "0-10V";
-String ch4_mode = "4-20mA";
-
-void syncConfig() {
-  HTTPClient http;
-  String url = String(BASE_URL) + "?mac=" + MAC_ADDR;
-  http.begin(url);
+void setup() {
+  Serial.begin(115200);
+  pinMode(5, OUTPUT); // Relay Output DO1
   
-  int httpCode = http.GET();
-  if (httpCode == 200) {
-    StaticJsonDocument<1024> doc;
-    deserializeJson(doc, http.getString());
-    
-    JsonArray configs = doc["channel_config"];
-    for (JsonObject cfg : configs) {
-      if (strcmp(cfg["channel_type"], "analog") == 0) {
-        int ch = cfg["channel_number"];
-        const char* mode = cfg["data_mode"];
-        if (ch == 1) ch1_mode = mode;
-        if (ch == 2) ch2_mode = mode;
-        if (ch == 3) ch3_mode = mode;
-        if (ch == 4) ch4_mode = mode;
-      }
-    }
-    
-    // Apply DO states
-    JsonObject dout = doc["digital_out"];
-    if (!dout.isNull()) {
-      digitalWrite(GPIO_DO1, dout["do1"] ? HIGH : LOW);
-      digitalWrite(GPIO_DO2, dout["do2"] ? HIGH : LOW);
-      digitalWrite(GPIO_DO3, dout["do3"] ? HIGH : LOW);
-      digitalWrite(GPIO_DO4, dout["do4"] ? HIGH : LOW);
-    }
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
   }
-  http.end();
+  Serial.println("\\nWiFi Connected.");
 }
 
-void sendReadings() {
-  HTTPClient http;
-  http.begin(BASE_URL);
-  http.addHeader("Content-Type", "application/json");
-
-  StaticJsonDocument<512> doc;
-  doc["mac_address"] = MAC_ADDR;
-
-  JsonObject analog = doc.createNestedObject("analog");
-  
-  JsonObject ch1 = analog.createNestedObject("ch1");
-  ch1["value"] = analogRead(0) * (10.0 / 4095.0);
-  ch1["mode"] = ch1_mode;
-
-  JsonObject ch2 = analog.createNestedObject("ch2");
-  ch2["value"] = 4.0 + analogRead(1) * (16.0 / 4095.0);
-  ch2["mode"] = ch2_mode;
-
-  // ... ch3, ch4
-
-  JsonObject di = doc.createNestedObject("digital_in");
-  di["di1"] = digitalRead(GPIO_DI1);
-  di["di2"] = digitalRead(GPIO_DI2);
-  di["di3"] = digitalRead(GPIO_DI3);
-  di["di4"] = digitalRead(GPIO_DI4);
-
-  JsonObject dout = doc.createNestedObject("digital_out");
-  dout["do1"] = digitalRead(GPIO_DO1);
-  dout["do2"] = digitalRead(GPIO_DO2);
-  dout["do3"] = digitalRead(GPIO_DO3);
-  dout["do4"] = digitalRead(GPIO_DO4);
-
-  doc["rtc_time"] = getRTCTimeISO8601();
-
-  String payload;
-  serializeJson(doc, payload);
-
-  int httpCode = http.POST(payload);
-  if (httpCode == 200) {
-    Serial.println("Data sent successfully");
+void pollConfiguration() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    
+    // GET channel configurations
+    String fetchUrl = String(API_BASE_URL) + "/device-channel-config?device_id=" + DEVICE_UUID;
+    http.begin(fetchUrl);
+    
+    int httpResponseCode = http.GET();
+    if (httpResponseCode == 200) {
+      String payload = http.getString();
+      DynamicJsonDocument doc(2048);
+      deserializeJson(doc, payload);
+      
+      // Parse settings and output relay configurations
+      JsonArray arr = doc.as<JsonArray>();
+      for (JsonObject obj : arr) {
+        const char* type = obj["channel_type"];
+        int num = obj["channel_number"];
+        const char* label = obj["label"];
+        
+        Serial.printf("Config received: CH %d (%s) - Label: %s\\n", num, type, label);
+      }
+    }
+    http.end();
   }
-  http.end();
+}
+
+void postTelemetry() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    
+    // POST Telemetry readings
+    String postUrl = String(API_BASE_URL) + "/device-readings";
+    http.begin(postUrl);
+    http.addHeader("Content-Type", "application/json");
+    
+    DynamicJsonDocument txDoc(1024);
+    txDoc["device_id"] = DEVICE_UUID;
+    txDoc["analog_ch1"] = 78.45; // Simulating temperature read
+    txDoc["analog_ch1_mode"] = "4-20mA";
+    txDoc["analog_ch2"] = 5.23;  // Simulating pressure read
+    txDoc["analog_ch2_mode"] = "0-10V";
+    
+    txDoc["digital_in1"] = true;
+    txDoc["digital_in2"] = false;
+    txDoc["digital_out1"] = true; // Report current relay state
+    
+    String jsonOutput;
+    serializeJson(txDoc, jsonOutput);
+    
+    int postResponse = http.POST(jsonOutput);
+    if (postResponse == 201) {
+      Serial.println("Telemetry successfully pushed to SQLite database.");
+    }
+    http.end();
+  }
 }
 
 void loop() {
-  syncConfig();     // Sync config from cloud
-  sendReadings();   // Send sensor data
-  delay(30000);     // Every 30 seconds
+  pollConfiguration();
+  delay(1000);
+  postTelemetry();
+  delay(15000); // Wait 15 seconds before next polling cycle
 }`} />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Modbus RTU Integration Notes</CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm text-muted-foreground space-y-2">
-                <p>The ESP32-S3 board supports Modbus RTU via its RS485 interface. The modbus address is configurable per device through the Config page.</p>
-                <p>When using Modbus, the ESP32 acts as a gateway — reading Modbus registers and forwarding data via HTTP to the cloud endpoint.</p>
-                <p>The <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded text-foreground">modbus_address</code> field syncs via the GET config endpoint.</p>
               </CardContent>
             </Card>
           </TabsContent>
