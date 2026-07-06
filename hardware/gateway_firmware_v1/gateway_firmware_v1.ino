@@ -1,6 +1,6 @@
 /********************************************************************
  *  BBJSENSE Telemetry Gateway & Control Firmware v4.0
- *  Hardware: ESP32-S3 Custom PCB
+ *  Hardware: ESP32 Custom PCB (ESP32-D0WD-V3)
  *  Developed by Dhanushka Udaya Kumara
  *
  *  Pinout Mapping:
@@ -20,7 +20,6 @@
 #include <Adafruit_NeoPixel.h>
 #include <Wire.h>
 #include <SPI.h>
-#include <SPIMemory.h>
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
@@ -71,11 +70,125 @@ enum LedState {
   LED_OFFLINE_LOGGING  // solid orange/yellow
 };
 
+// Lightweight Custom SPI Flash Driver to prevent IRAM overflow issues on ESP32
+class CustomSPIFlash {
+private:
+  uint8_t _csPin;
+  SPIClass* _spi;
+
+  void writeEnable() {
+    digitalWrite(_csPin, LOW);
+    _spi->transfer(0x06); // Write Enable
+    digitalWrite(_csPin, HIGH);
+  }
+
+  void waitBusy() {
+    uint8_t status = 0;
+    do {
+      digitalWrite(_csPin, LOW);
+      _spi->transfer(0x05); // Read Status Register-1
+      status = _spi->transfer(0x00);
+      digitalWrite(_csPin, HIGH);
+      delayMicroseconds(50);
+    } while (status & 0x01); // BUSY bit is bit 0
+  }
+
+public:
+  CustomSPIFlash(uint8_t csPin, SPIClass* spiBus) : _csPin(csPin), _spi(spiBus) {}
+
+  bool begin() {
+    pinMode(_csPin, OUTPUT);
+    digitalWrite(_csPin, HIGH);
+    
+    // Read JEDEC ID to confirm SPI communication
+    uint32_t jedec = getJEDECID();
+    return ((jedec & 0xFF0000) >> 16) == 0xEF || jedec != 0;
+  }
+
+  uint32_t getJEDECID() {
+    digitalWrite(_csPin, LOW);
+    _spi->transfer(0x9F); // Read JEDEC ID command
+    uint8_t mfg = _spi->transfer(0x00);
+    uint8_t memType = _spi->transfer(0x00);
+    uint8_t cap = _spi->transfer(0x00);
+    digitalWrite(_csPin, HIGH);
+    return ((uint32_t)mfg << 16) | ((uint32_t)memType << 8) | cap;
+  }
+
+  bool eraseSector(uint32_t addr) {
+    waitBusy();
+    writeEnable();
+    
+    digitalWrite(_csPin, LOW);
+    _spi->transfer(0x20); // Sector Erase (4KB)
+    _spi->transfer((addr >> 16) & 0xFF);
+    _spi->transfer((addr >> 8) & 0xFF);
+    _spi->transfer(addr & 0xFF);
+    digitalWrite(_csPin, HIGH);
+    
+    waitBusy();
+    return true;
+  }
+
+  bool writeBytes(uint32_t addr, const uint8_t* data, uint32_t len) {
+    uint32_t written = 0;
+    while (written < len) {
+      uint32_t pageOffset = (addr + written) % 256;
+      uint32_t maxWrite = 256 - pageOffset;
+      uint32_t chunk = min(maxWrite, len - written);
+      
+      waitBusy();
+      writeEnable();
+      
+      digitalWrite(_csPin, LOW);
+      _spi->transfer(0x02); // Page Program
+      uint32_t currentAddr = addr + written;
+      _spi->transfer((currentAddr >> 16) & 0xFF);
+      _spi->transfer((currentAddr >> 8) & 0xFF);
+      _spi->transfer(currentAddr & 0xFF);
+      
+      for (uint32_t i = 0; i < chunk; i++) {
+        _spi->transfer(data[written + i]);
+      }
+      digitalWrite(_csPin, HIGH);
+      
+      written += chunk;
+    }
+    waitBusy();
+    return true;
+  }
+
+  bool writeStr(uint32_t addr, const String& str) {
+    return writeBytes(addr, (const uint8_t*)str.c_str(), str.length() + 1); // Write string with null-terminator
+  }
+
+  bool readStr(uint32_t addr, String& outStr) {
+    outStr = "";
+    waitBusy();
+    digitalWrite(_csPin, LOW);
+    _spi->transfer(0x03); // Read Data command
+    _spi->transfer((addr >> 16) & 0xFF);
+    _spi->transfer((addr >> 8) & 0xFF);
+    _spi->transfer(addr & 0xFF);
+    
+    const uint32_t maxLimit = 2048; 
+    for (uint32_t i = 0; i < maxLimit; i++) {
+      char c = (char)_spi->transfer(0x00);
+      if (c == '\0') {
+        break;
+      }
+      outStr += c;
+    }
+    digitalWrite(_csPin, HIGH);
+    return true;
+  }
+};
+
 // Hardware Instances
 Adafruit_NeoPixel statusLED(1, WS_PIN, NEO_GRB + NEO_KHZ800);
 ADS1115 adc(ADS1115::ADDR_GND);
 IO_PCF8563 rtc;
-SPIFlash flash(FLASH_CS, &SPI);
+CustomSPIFlash flash(FLASH_CS, &SPI);
 Preferences prefs;
 
 // BLE Server Instances
@@ -737,8 +850,6 @@ void syncConfiguration() {
 
 // Offline Logging logic
 void writeLogToFlash(String logJson) {
-  if (!flash.begin()) return;
-
   // Erase next sector ahead of time if boundary crossed
   uint32_t currentSector = flashWritePtr / 4096;
   uint32_t nextSector = (flashWritePtr + logJson.length() + 10) / 4096;
@@ -763,7 +874,7 @@ void writeLogToFlash(String logJson) {
 }
 
 String readLogFromFlash() {
-  if (!flash.begin() || flashReadPtr == flashWritePtr) return "";
+  if (flashReadPtr == flashWritePtr) return "";
   
   String readBack = "";
   if (flash.readStr(flashReadPtr, readBack)) {
