@@ -785,6 +785,7 @@ void logI2CErrorEvent() {
   NetworkClientSecure client;
   client.setInsecure();
   HTTPClient http;
+  http.setTimeout(10000); // 10 seconds timeout
   String eventUrl = apiBaseUrl + "/device-events";
   http.begin(client, eventUrl);
   http.addHeader("Content-Type", "application/json");
@@ -876,9 +877,19 @@ void syncConfiguration() {
   if (WiFi.status() != WL_CONNECTED || deviceUUID.length() == 0) return;
 
   Serial.println("[HTTP] Fetching channel configuration from server...");
+  
+  IPAddress remoteIP;
+  int dnsErr = WiFi.hostByName("bbjdemo.iobuilds.com", remoteIP);
+  if (dnsErr == 1) {
+    Serial.printf("[DNS] Resolved bbjdemo.iobuilds.com to: %s\n", remoteIP.toString().c_str());
+  } else {
+    Serial.println("[DNS] ERROR: Failed to resolve domain bbjdemo.iobuilds.com! Check if Wi-Fi has internet access.");
+  }
+
   NetworkClientSecure client;
   client.setInsecure();
   HTTPClient http;
+  http.setTimeout(10000); // 10 seconds timeout
   String syncUrl = apiBaseUrl + "/device-channel-config?device_id=" + deviceUUID;
   http.begin(client, syncUrl);
 
@@ -979,6 +990,7 @@ void syncOfflineFlashLogs() {
     NetworkClientSecure client;
     client.setInsecure();
     HTTPClient http;
+    http.setTimeout(10000); // 10 seconds timeout
     http.begin(client, apiBaseUrl + "/device-readings");
     http.addHeader("Content-Type", "application/json");
 
@@ -1054,6 +1066,7 @@ void processTelemetry() {
   NetworkClientSecure client;
   client.setInsecure();
   HTTPClient http;
+  http.setTimeout(10000); // 10 seconds timeout
   String telemetryUrl = apiBaseUrl + "/device-readings";
   http.begin(client, telemetryUrl);
   http.addHeader("Content-Type", "application/json");
@@ -1143,6 +1156,7 @@ void processModbus() {
   NetworkClientSecure client;
   client.setInsecure();
   HTTPClient http;
+  http.setTimeout(10000); // 10 seconds timeout
   
   String devicesUrl = apiBaseUrl + "/modbus/devices?device_id=" + deviceUUID;
   http.begin(client, devicesUrl);
@@ -1214,6 +1228,7 @@ void processModbus() {
         NetworkClientSecure postClient;
         postClient.setInsecure();
         HTTPClient postHttp;
+        postHttp.setTimeout(10000); // 10 seconds timeout
         postHttp.begin(postClient, apiBaseUrl + "/modbus/readings");
         postHttp.addHeader("Content-Type", "application/json");
 
