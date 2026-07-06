@@ -161,6 +161,81 @@ sequenceDiagram
     end
 ```
 
+## 🌐 Hardware & Server Connection Architecture
+
+The telemetry gateway serves as an electrical-to-cloud bridge, translating physical signal voltages and Modbus industrial protocols into Express-compatible JSON data packages.
+
+### 1. Electrical Signal Digitization & Scaling
+*   **Analog Input Channels (0-10V or 4-20mA)**: 
+    *   The industrial inputs pass through custom opto-isolated front-end filters.
+    *   The signals are digitized by an **ADS1115 16-bit Sigma-Delta ADC** communicating over I2C (`SDA=21, SCL=22`).
+    *   The gateway reads the raw voltage and calculates loop current: $I_{\text{mA}} = V_{\text{raw}} / 0.15$.
+    *   Using linear interpolation, the firmware scales values relative to server-configured ranges:
+        $$\text{Scaled Value} = \text{Min} + \left(\frac{I_{\text{mA}} - 4.0}{16.0}\right) \times (\text{Max} - \text{Min})$$
+*   **Opto-Isolated Digital Inputs**:
+    *   Four digital input channels (active-LOW) represent dry contact or level switches.
+    *   Bypassed through internal debounce filters and serialized as boolean values.
+
+### 2. Secure HTTPS Connection Specs
+*   **Transport Layer**: TLS 1.2 secure client socket connection (`NetworkClientSecure`).
+*   **Handshake Bypass**: Bypasses root CA certificate verification using `client.setInsecure()`, eliminating the overhead of managing certificates on embedded hardware.
+*   **Timeout Guard**: Explicitly set to `http.setTimeout(10000)` (10 seconds) to prevent TCP handshakes or poor signals from stalling loop operations.
+*   **DNS Resolution Diagnostic**: Includes pre-request `WiFi.hostByName()` lookup to output clear router/internet connection errors in local logs.
+
+### 3. API Payload JSON Schema Contracts
+
+#### A. Main Telemetry Endpoint (`POST /api/device-readings`)
+Pushes localized ADC and DIN status periodically (default 15 seconds) to the database.
+```json
+{
+  "device_id": "62fc163f-e804-4676-a221-731232a67a47",
+  "analog_ch1": 68.42,
+  "analog_ch1_mode": "4-20mA",
+  "analog_ch2": 2.15,
+  "analog_ch2_mode": "0-10V",
+  "analog_ch3": 0.0,
+  "analog_ch3_mode": "0-10V",
+  "analog_ch4": 0.0,
+  "analog_ch4_mode": "0-10V",
+  "digital_in1": true,
+  "digital_in2": false,
+  "digital_in3": false,
+  "digital_in4": false,
+  "digital_out1": false,
+  "digital_out2": false,
+  "digital_out3": false,
+  "digital_out4": false,
+  "rtc_time": "2026-07-06T10:23:10Z"
+}
+```
+
+#### B. Event Logger Endpoint (`POST /api/device-events`)
+Allows the ESP32 to report startup boot parameters, I2C bus errors, or manual reset triggers to the admin console.
+```json
+{
+  "device_id": "62fc163f-e804-4676-a221-731232a67a47",
+  "event_type": "critical",
+  "message": "I2C Sensor Bus Initialization Failed (ADS1115 or PCF8563 unresponsive)"
+}
+```
+
+#### C. Modbus Readings Endpoint (`POST /api/modbus/readings`)
+Pushes register readings polled from Modbus slave devices over RS485 Serial.
+```json
+{
+  "modbus_device_id": "426e2cb0-76d6-4158-b0be-a092cab78c78",
+  "register_id": "8af76cde-129a-4eab-89cd-09a7b716ca32",
+  "raw_value": "01f3",
+  "scaled_value": 49.9
+}
+```
+
+### 4. Outage Outbox Buffer & Synchronization
+*   If the gateway receives an HTTP response other than `200` / `201` (or fails to connect), it enters the Offline state.
+*   **Storage Loop**: Serializes the standard telemetry JSON schema and writes it as a plain-text string directly to a circular queue inside the **W25Q64 SPI Flash**.
+*   **Pointer Registry**: Writes the new write pointer address `flashWritePtr` to the ESP32's non-volatile storage (NVS) using Arduino `Preferences`.
+*   **Sync Recovery**: Once Wi-Fi reconnects, it initiates a FIFO (First-In, First-Out) reading scan from `flashReadPtr` to `flashWritePtr`. Pushes each logged record to `/device-readings` sequentially, incrementing and committing `flashReadPtr` in NVS only upon getting an `HTTP 201 Created` confirmation.
+
 ---
 
 ## 🛡️ Fail-Safe Mechanisms & Stability Policies
