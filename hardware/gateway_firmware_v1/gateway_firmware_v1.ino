@@ -832,7 +832,16 @@ void syncTimeFromHttpHeader(const String& dateStr) {
     tm_time.tm_min  = minute;
     tm_time.tm_sec  = second;
     
-    time_t t = timegm(&tm_time);
+    // Manual UTC epoch calculation (timezone-independent Julian Day calculation)
+    int y = year;
+    int m = month + 1; // 1-indexed for formula
+    int a = (14 - m) / 12;
+    int y_calc = y + 4800 - a;
+    int m_calc = m + 12 * a - 3;
+    long julian_day = day + (153 * m_calc + 2) / 5 + 365 * y_calc + y_calc / 4 - y_calc / 100 + y_calc / 400 - 32045;
+    long days_since_epoch = julian_day - 2440588;
+    time_t t = days_since_epoch * 86400UL + hour * 3600UL + minute * 60UL + second;
+
     if (t > 1000000000) {
       struct timeval tv = { .tv_sec = t, .tv_usec = 0 };
       settimeofday(&tv, nullptr);
