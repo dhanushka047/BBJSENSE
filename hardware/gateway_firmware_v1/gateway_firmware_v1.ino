@@ -1396,6 +1396,9 @@ float parseModbusValue(uint8_t *data, String dataType) {
 }
 
 void checkFunctionButton() {
+  // Ignore button transitions during first 5 seconds to bypass BLE/Wi-Fi startup transient noise
+  if (millis() < 5000) return;
+
   static unsigned long pressStartMs = 0;
   static bool wasPressed = false;
 
