@@ -253,6 +253,7 @@ uint16_t calculateCRC(const uint8_t *buf, int len);
 bool readModbusRegister(uint8_t slaveId, uint16_t address, uint8_t fc, uint8_t *respData, int byteCount);
 float parseModbusValue(uint8_t *data, String dataType);
 void initTimeTime();
+void syncTimeFromHttpHeader(const String& dateStr);
 String getISOTime();
 void checkI2CBus();
 void logI2CErrorEvent();
@@ -801,6 +802,45 @@ void logI2CErrorEvent() {
   }
 }
 
+void syncTimeFromHttpHeader(const String& dateStr) {
+  if (dateStr.length() < 20) return;
+  
+  // Format: "Mon, 06 Jul 2026 14:50:00 GMT" or similar RFC 822/1123 format
+  int day, year, hour, minute, second;
+  char monthName[4];
+  
+  int parsed = sscanf(dateStr.c_str(), "%*s %d %3s %d %d:%d:%d", 
+                      &day, monthName, &year, &hour, &minute, &second);
+                      
+  if (parsed == 6) {
+    const char* months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+    int month = 0;
+    for (int i = 0; i < 12; i++) {
+      if (strcmp(monthName, months[i]) == 0) {
+        month = i;
+        break;
+      }
+    }
+    
+    struct tm tm_time;
+    memset(&tm_time, 0, sizeof(tm_time));
+    tm_time.tm_mday = day;
+    tm_time.tm_mon  = month;
+    tm_time.tm_year = year - 1900;
+    tm_time.tm_hour = hour;
+    tm_time.tm_min  = minute;
+    tm_time.tm_sec  = second;
+    
+    time_t t = timegm(&tm_time);
+    if (t > 1000000000) {
+      struct timeval tv = { .tv_sec = t, .tv_usec = 0 };
+      settimeofday(&tv, nullptr);
+      Serial.printf("[TIME] System clock synchronized from HTTP header: %s\n", dateStr.c_str());
+    }
+  }
+}
+
 // Time configurations
 void initTimeTime() {
   Serial.println("[TIME] Configuring NTP background time sync...");
@@ -820,16 +860,24 @@ String getISOTime() {
   return String(buf);
 }
 
-// Fetch dynamic analog configurations from dashboard
 void syncConfiguration() {
   if (WiFi.status() != WL_CONNECTED || deviceUUID.length() == 0) return;
 
+  Serial.println("[HTTP] Fetching channel configuration from server...");
   HTTPClient http;
   String syncUrl = apiBaseUrl + "/device-channel-config?device_id=" + deviceUUID;
   http.begin(syncUrl);
 
+  const char* headerKeys[] = {"Date"};
+  http.collectHeaders(headerKeys, 1);
+
   int httpCode = http.GET();
+  Serial.printf("[HTTP] Configuration sync response: %d\n", httpCode);
+
   if (httpCode == 200) {
+    if (http.hasHeader("Date")) {
+      syncTimeFromHttpHeader(http.header("Date"));
+    }
     String payload = http.getString();
     DynamicJsonDocument doc(4096);
     DeserializationError error = deserializeJson(doc, payload);
@@ -936,6 +984,7 @@ void syncOfflineFlashLogs() {
 void processTelemetry() {
   if (WiFi.status() != WL_CONNECTED || deviceUUID.length() == 0) return;
 
+  Serial.println("[HTTP] Sending telemetry readings to server...");
   digitalWrite(LED_TX_PIN, HIGH);
 
   float scaledVal[4] = {0, 0, 0, 0};
@@ -991,11 +1040,19 @@ void processTelemetry() {
   http.begin(telemetryUrl);
   http.addHeader("Content-Type", "application/json");
 
+  const char* headerKeys[] = {"Date"};
+  http.collectHeaders(headerKeys, 1);
+
   String jsonOutput;
   serializeJson(txDoc, jsonOutput);
 
   int httpCode = http.POST(jsonOutput);
+  Serial.printf("[HTTP] Telemetry send response: %d\n", httpCode);
+
   if (httpCode == 201) {
+    if (http.hasHeader("Date")) {
+      syncTimeFromHttpHeader(http.header("Date"));
+    }
     // Normal operation
     if (!i2cError) {
       currentLedState = LED_OPERATIONAL;
