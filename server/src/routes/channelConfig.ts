@@ -1,11 +1,14 @@
-import { Router, Response } from "express";
+import { Router, Request, Response } from "express";
+import jwt from "jsonwebtoken";
 import prisma from "../db.js";
 import { authenticateToken, AuthRequest } from "../middleware/auth.js";
+
+const JWT_SECRET = process.env.JWT_SECRET || "bbjsense-default-secret-key-12345";
 
 const router = Router();
 
 // GET /api/device-channel-config - Fetch configs for a device
-router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get("/", async (req: Request, res: Response) => {
   const { device_id } = req.query;
 
   if (!device_id) {
@@ -21,12 +24,24 @@ router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: "Device not found" });
     }
 
-    if (
-      req.user?.role !== "super_admin" &&
-      req.user?.role !== "admin" &&
-      device.owner_id !== req.user?.id
-    ) {
-      return res.status(403).json({ error: "Access denied" });
+    const authHeader = req.headers["authorization"];
+    if (authHeader) {
+      const token = authHeader.split(" ")[1];
+      if (!token) {
+        return res.status(401).json({ error: "Access token required" });
+      }
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET) as any;
+        if (
+          decoded.role !== "super_admin" &&
+          decoded.role !== "admin" &&
+          device.owner_id !== decoded.id
+        ) {
+          return res.status(403).json({ error: "Access denied" });
+        }
+      } catch (err) {
+        return res.status(403).json({ error: "Invalid or expired token" });
+      }
     }
 
     const configs = await prisma.deviceChannelConfig.findMany({

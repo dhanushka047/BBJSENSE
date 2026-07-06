@@ -127,7 +127,10 @@ router.post("/", async (req: Request, res: Response) => {
       broadcast("devices", "UPDATE", updatedDevice);
     }
 
-    return res.status(201).json(reading);
+    return res.status(201).json({
+      ...reading,
+      wifi_max_disconnect_time: updatedDevice?.wifi_max_disconnect_time ?? 900
+    });
   } catch (err: any) {
     console.error("Insert reading error:", err);
     return res.status(500).json({ error: "Failed to insert reading" });

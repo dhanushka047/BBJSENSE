@@ -15,10 +15,22 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AppLayout from "@/components/AppLayout";
 import { useEffect } from "react";
 
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 const Devices = () => {
   const [search, setSearch] = useState("");
   const [macInput, setMacInput] = useState("");
   const [nameInput, setNameInput] = useState("");
+  const [wifiSsidInput, setWifiSsidInput] = useState("");
+  const [wifiPassInput, setWifiPassInput] = useState("");
+  const [apiUrlInput, setApiUrlInput] = useState("http://localhost:5001/api");
+  const [bleLoading, setBleLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const { user, role } = useAuth();
   const { toast } = useToast();
@@ -81,6 +93,104 @@ const Devices = () => {
     },
   });
 
+  const handleBLEProvisioning = async () => {
+    if (!wifiSsidInput) {
+      toast({ title: "Validation Error", description: "Wi-Fi SSID is required for BLE configuration.", variant: "destructive" });
+      return;
+    }
+    
+    setBleLoading(true);
+    try {
+      toast({ title: "BLE Scan", description: "Requesting Bluetooth device..." });
+      
+      const device = await navigator.bluetooth.requestDevice({
+        filters: [
+          { namePrefix: "IOBuilds-BLE" },
+          { namePrefix: "BBJSENSE-BLE" }
+        ],
+        optionalServices: ["12345678-1234-1234-1234-1234567890ab"]
+      });
+      
+      toast({ title: "BLE Connection", description: "Connecting to GATT Server..." });
+      const gattServer = await device.gatt?.connect();
+      if (!gattServer) throw new Error("Could not connect to BLE GATT server");
+      
+      const service = await gattServer.getPrimaryService("12345678-1234-1234-1234-1234567890ab");
+      const characteristic = await service.getCharacteristic("12345678-1234-1234-1234-1234567890ac");
+      
+      toast({ title: "Syncing status", description: "Reading device MAC address..." });
+      const value = await characteristic.readValue();
+      const statusStr = new TextDecoder().decode(value);
+      console.log("BLE status read:", statusStr);
+      
+      let macAddress = "";
+      let i2cStatus = "ok";
+      const parts = statusStr.split(";");
+      parts.forEach(p => {
+        const [k, v] = p.split("=");
+        if (k === "MAC") macAddress = v;
+        if (k === "I2C") i2cStatus = v;
+      });
+      
+      if (!macAddress) {
+        throw new Error("Failed to read MAC address from hardware device.");
+      }
+      
+      if (i2cStatus === "fail") {
+        toast({ title: "Hardware Warning", description: "Warning: Board reported I2C initialization failure!", variant: "destructive" });
+      }
+      
+      const generatedUUID = generateUUID();
+      
+      const configObj = {
+        ssid: wifiSsidInput,
+        pass: wifiPassInput,
+        uuid: generatedUUID,
+        api: apiUrlInput
+      };
+      
+      toast({ title: "Configuring Device", description: "Writing network profiles over BLE..." });
+      const encoder = new TextEncoder();
+      const payloadBytes = encoder.encode(JSON.stringify(configObj));
+      await characteristic.writeValue(payloadBytes);
+      
+      toast({ title: "Configured!", description: "Hardware configured. Registering with local server..." });
+      
+      const mac = macAddress.trim().toUpperCase();
+      const { data: newDevice, error } = await supabase.from("devices").insert({
+        id: generatedUUID,
+        mac_address: mac,
+        name: nameInput.trim() || "BLE Provisioned Node",
+        owner_id: user?.id,
+      }).select("id").single();
+      
+      if (error) throw error;
+      
+      await supabase.from("device_events").insert({
+        device_id: generatedUUID,
+        event_type: "info",
+        message: `Device provisioned and registered over BLE. MAC: ${mac}`,
+        triggered_by: user?.id,
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-devices"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-pending"] });
+      setMacInput("");
+      setNameInput("");
+      setWifiSsidInput("");
+      setWifiPassInput("");
+      setDialogOpen(false);
+      
+      toast({ title: "Success!", description: "Gateway device provisioned, configured, and registered!" });
+    } catch (err: any) {
+      console.error("BLE Provisioning error:", err);
+      toast({ title: "Configuration Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setBleLoading(false);
+    }
+  };
+
   const deleteDevice = useMutation({
     mutationFn: async (device: { id: string; name: string }) => {
       await supabase.from("devices").delete().eq("id", device.id);
@@ -124,24 +234,43 @@ const Devices = () => {
                 <DialogTitle>Add New IoT Gateway</DialogTitle>
                 <DialogDescription>Input the network profile configurations of the node</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 pt-2 text-sm">
+              <div className="space-y-4 pt-2 text-sm overflow-y-auto max-h-[75vh] pr-1">
                 <div className="space-y-2">
                   <Label htmlFor="node-name">Device Name / Label</Label>
                   <Input id="node-name" placeholder="e.g. Pump Station A" value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="h-10 bg-background border-border" />
                 </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="wifi-ssid">Wi-Fi SSID (Required for BLE Setup)</Label>
+                  <Input id="wifi-ssid" placeholder="Factory_SSID" value={wifiSsidInput} onChange={(e) => setWifiSsidInput(e.target.value)} className="h-10 bg-background border-border" />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="wifi-pass">Wi-Fi Password</Label>
+                  <Input id="wifi-pass" type="password" placeholder="SSID_Password" value={wifiPassInput} onChange={(e) => setWifiPassInput(e.target.value)} className="h-10 bg-background border-border" />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="api-url">Backend API Base URL</Label>
+                  <Input id="api-url" placeholder="http://localhost:5001/api" value={apiUrlInput} onChange={(e) => setApiUrlInput(e.target.value)} className="font-mono h-10 bg-background border-border" />
+                </div>
+
+                <Button variant="secondary" className="w-full h-10 border-border font-semibold bg-primary/10 text-primary hover:bg-primary/20" onClick={handleBLEProvisioning} disabled={bleLoading}>
+                  <ScanLine size={18} className="mr-2" /> {bleLoading ? "Configuring over BLE..." : "Configure & Add via BLE"}
+                </Button>
+
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+                  <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">or manual registry</span></div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="mac-address">MAC Address</Label>
                   <Input id="mac-address" placeholder="AA:BB:CC:DD:EE:FF" value={macInput} onChange={(e) => setMacInput(e.target.value)} className="font-mono h-10 bg-background border-border" />
                 </div>
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
-                  <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">or</span></div>
-                </div>
-                <Button variant="outline" className="w-full h-10 border-border text-muted-foreground" disabled>
-                  <ScanLine size={18} className="mr-2" /> Auto Scan Local BLE Ports (BLE Mode)
-                </Button>
+
                 <Button className="w-full h-10 gradient-brand text-primary-foreground font-semibold" onClick={() => addDevice.mutate()} disabled={addDevice.isPending}>
-                  {addDevice.isPending ? "Configuring..." : "Add Hardware Node"}
+                  {addDevice.isPending ? "Configuring..." : "Add Hardware Node Manually"}
                 </Button>
               </div>
             </DialogContent>

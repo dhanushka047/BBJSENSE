@@ -213,6 +213,7 @@ export type Database = {
           last_seen_at: string | null
           mac_address: string
           modbus_address: string | null
+          wifi_max_disconnect_time: number
           name: string
           nickname: string | null
           owner_id: string | null
@@ -227,6 +228,7 @@ export type Database = {
           last_seen_at?: string | null
           mac_address: string
           modbus_address?: string | null
+          wifi_max_disconnect_time?: number
           name?: string
           nickname?: string | null
           owner_id?: string | null
@@ -241,6 +243,7 @@ export type Database = {
           last_seen_at?: string | null
           mac_address?: string
           modbus_address?: string | null
+          wifi_max_disconnect_time?: number
           name?: string
           nickname?: string | null
           owner_id?: string | null

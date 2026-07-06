@@ -59,6 +59,7 @@ const DeviceConfig = () => {
   const [configs, setConfigs] = useState<ChannelConfig[]>(DEFAULT_CONFIGS);
   const [nickname, setNickname] = useState("");
   const [modbusAddr, setModbusAddr] = useState("0x01");
+  const [wifiMaxDisconnectTime, setWifiMaxDisconnectTime] = useState(900);
 
   const { data: device } = useQuery({
     queryKey: ["device", id],
@@ -91,6 +92,7 @@ const DeviceConfig = () => {
     if (device) {
       setNickname(device.nickname || "");
       setModbusAddr(device.modbus_address || "0x01");
+      setWifiMaxDisconnectTime(device.wifi_max_disconnect_time ?? 900);
     }
   }, [device]);
 
@@ -142,10 +144,10 @@ const DeviceConfig = () => {
 
   const saveConfig = useMutation({
     mutationFn: async () => {
-      // Save device nickname/modbus
+      // Save device nickname/modbus/wifi_max_disconnect_time
       await supabase
         .from("devices")
-        .update({ nickname, modbus_address: modbusAddr })
+        .update({ nickname, modbus_address: modbusAddr, wifi_max_disconnect_time: Number(wifiMaxDisconnectTime) })
         .eq("id", id!);
 
       // Upsert channel configs
@@ -224,6 +226,10 @@ const DeviceConfig = () => {
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">Modbus Address</Label>
               <Input value={modbusAddr} onChange={(e) => setModbusAddr(e.target.value)} placeholder="0x01" className="font-mono bg-background border-border text-foreground" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Wi-Fi Max Disconnect Time (Seconds)</Label>
+              <Input type="number" min="10" value={wifiMaxDisconnectTime} onChange={(e) => setWifiMaxDisconnectTime(Number(e.target.value))} placeholder="900" className="bg-background border-border text-foreground" />
             </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wider text-muted-foreground">MAC Address</Label>
