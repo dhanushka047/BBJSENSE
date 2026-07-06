@@ -48,8 +48,8 @@
 #define RS485_RX 15
 #define RS485_DIR 33
 
-#define SDA_PIN 22
-#define SCL_PIN 21
+#define SDA_PIN 21
+#define SCL_PIN 22
 
 #define FLASH_CS   5
 #define FLASH_CLK  18
