@@ -135,7 +135,7 @@ public:
     while (written < len) {
       uint32_t pageOffset = (addr + written) % 256;
       uint32_t maxWrite = 256 - pageOffset;
-      uint32_t chunk = min(maxWrite, len - written);
+      uint32_t chunk = (maxWrite < (len - written)) ? maxWrite : (len - written);
       
       waitBusy();
       writeEnable();
@@ -437,7 +437,8 @@ void loop() {
       Serial.printf("[WIFI] Scanned %d networks\n", n);
 
       String results = "NETWORKS:";
-      for (int i = 0; i < min(n, 12); i++) {
+      int limit = (n < 12) ? n : 12;
+      for (int i = 0; i < limit; i++) {
         if (i > 0) results += ";";
         results += WiFi.SSID(i) + "," + String(WiFi.RSSI(i));
       }
