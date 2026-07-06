@@ -36,6 +36,7 @@
 #define DIN2 35
 #define DIN3 14
 #define DIN4 12
+#define FUNC_BUTTON_PIN 0
 
 #define RELAY1 36
 #define RELAY2 32
@@ -237,6 +238,7 @@ struct ChannelConfig {
   float maxValue = 10.0;
 };
 ChannelConfig analogConfigs[4];
+bool buttonIsBeingHeld = false;
 bool relayStates[4] = {false, false, false, false};
 
 // Function declarations
@@ -260,6 +262,8 @@ void checkI2CBus();
 void logI2CErrorEvent();
 void handleLEDAnimations();
 void setLEDColor(uint8_t r, uint8_t g, uint8_t b);
+void checkFunctionButton();
+void eraseConfig();
 
 // BLE Callbacks
 class MyServerCallbacks: public BLEServerCallbacks {
@@ -347,6 +351,7 @@ void setup() {
   pinMode(DIN2, INPUT);
   pinMode(DIN3, INPUT);
   pinMode(DIN4, INPUT);
+  pinMode(FUNC_BUTTON_PIN, INPUT_PULLUP);
 
   // Relay Outputs
 #if !defined(CONFIG_IDF_TARGET_ESP32S3)
@@ -432,6 +437,9 @@ void setup() {
 }
 
 void loop() {
+  // Check function button state
+  checkFunctionButton();
+
   // Update LED continuous animations
   handleLEDAnimations();
 
@@ -597,6 +605,7 @@ void setLEDColor(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 void handleLEDAnimations() {
+  if (buttonIsBeingHeld) return;
   if (ledDisabled) {
     statusLED.clear();
     statusLED.show();
@@ -1369,4 +1378,60 @@ float parseModbusValue(uint8_t *data, String dataType) {
     return (float)raw;
   }
   return (float)(((uint16_t)data[0] << 8) | data[1]);
+}
+
+void checkFunctionButton() {
+  static unsigned long pressStartMs = 0;
+  static bool wasPressed = false;
+
+  bool isPressed = (digitalRead(FUNC_BUTTON_PIN) == LOW); // Active LOW button (BOOT)
+
+  if (isPressed) {
+    buttonIsBeingHeld = true;
+    if (!wasPressed) {
+      pressStartMs = millis();
+      wasPressed = true;
+      Serial.println("[BUTTON] Function button pressed. Hold for 10s to reset all configurations...");
+    } else {
+      unsigned long holdTime = millis() - pressStartMs;
+      // Visual feedback: rapid RED blinking when holding the button
+      if ((holdTime % 300) < 150) {
+        setLEDColor(255, 0, 0); // Red ON
+      } else {
+        setLEDColor(0, 0, 0); // Red OFF
+      }
+      
+      if (holdTime >= 10000) { // 10 seconds hold
+        Serial.println("[BUTTON] 10-second hold detected! Erasing NVS configurations...");
+        
+        // Visual validation: rapid WHITE flash for feedback
+        for (int i = 0; i < 10; i++) {
+          setLEDColor(255, 255, 255);
+          delay(80);
+          setLEDColor(0, 0, 0);
+          delay(80);
+        }
+
+        eraseConfig();
+        
+        Serial.println("[SYSTEM] Reset complete. Restarting gateway module...");
+        delay(300);
+        ESP.restart();
+      }
+    }
+  } else {
+    if (wasPressed) {
+      buttonIsBeingHeld = false;
+      wasPressed = false;
+      Serial.println("[BUTTON] Function button released before 10s. Reset cancelled.");
+      setLEDColor(0, 0, 0); // Clear LED override
+    }
+  }
+}
+
+void eraseConfig() {
+  prefs.begin("gateway", false);
+  prefs.clear(); // Clear all keys under 'gateway' namespace
+  prefs.end();
+  Serial.println("[NVS] Configuration parameters successfully wiped from NVS.");
 }
