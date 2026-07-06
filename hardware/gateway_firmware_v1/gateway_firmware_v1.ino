@@ -240,6 +240,8 @@ struct ChannelConfig {
 ChannelConfig analogConfigs[4];
 bool buttonIsBeingHeld = false;
 bool buttonPressedState = LOW; // Auto-detected on boot
+bool triggerRestart = false;
+unsigned long restartTimerMs = 0;
 bool relayStates[4] = {false, false, false, false};
 
 // Function declarations
@@ -305,9 +307,9 @@ class MyCharacteristicCallbacks: public BLECharacteristicCallbacks {
         
         if (ssid.length() > 0 && uuid.length() > 0) {
           saveConfig(ssid, pass, uuid, api);
-          Serial.println("[BLE] Config saved. Restarting gateway...");
-          delay(1000);
-          ESP.restart();
+          Serial.println("[BLE] Config saved. Scheduling reboot in 2 seconds to allow BLE transaction to complete cleanly...");
+          triggerRestart = true;
+          restartTimerMs = millis();
         }
       } else {
         Serial.printf("[BLE] JSON Parse failed: %s\n", err.c_str());
@@ -452,6 +454,12 @@ void setup() {
 }
 
 void loop() {
+  // Non-blocking reboot check
+  if (triggerRestart && (millis() - restartTimerMs >= 2000)) {
+    Serial.println("[SYSTEM] Rebooting now...");
+    ESP.restart();
+  }
+
   // Check function button state
   checkFunctionButton();
 
@@ -698,8 +706,8 @@ void startBLEConfig() {
   isBleMode = true;
   currentLedState = LED_BLE_MODE;
   
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_OFF);
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
   
   Serial.println("[BLE] Initializing BLE Server (Service: 12345678-1234-1234-1234-1234567890ab)...");
   BLEDevice::init("IOBuilds-BLE");
