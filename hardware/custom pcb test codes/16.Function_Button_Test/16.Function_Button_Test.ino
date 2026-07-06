@@ -44,8 +44,24 @@ void loop() {
   static bool wasPressed = false;
   static unsigned long lastPrintMs = 0;
 
+  // Software Debouncer
+  static bool lastRawState = HIGH;
+  static bool debouncedState = HIGH;
+  static unsigned long lastDebounceTime = 0;
+  const unsigned long debounceDelay = 80; // 80 ms stable period required
+
+  bool rawState = digitalRead(FUNC_BUTTON_PIN);
+  if (rawState != lastRawState) {
+    lastDebounceTime = millis();
+    lastRawState = rawState;
+  }
+
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    debouncedState = rawState;
+  }
+
   // Read button state (Assuming active-LOW configuration)
-  bool isPressed = (digitalRead(FUNC_BUTTON_PIN) == LOW);
+  bool isPressed = (debouncedState == LOW);
 
   if (isPressed) {
     if (!wasPressed) {

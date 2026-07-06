@@ -1384,7 +1384,23 @@ void checkFunctionButton() {
   static unsigned long pressStartMs = 0;
   static bool wasPressed = false;
 
-  bool isPressed = (digitalRead(FUNC_BUTTON_PIN) == LOW); // Active LOW button (BOOT)
+  // Software Debouncer
+  static bool lastRawState = HIGH;
+  static bool debouncedState = HIGH;
+  static unsigned long lastDebounceTime = 0;
+  const unsigned long debounceDelay = 80; // 80 ms stable period required
+
+  bool rawState = digitalRead(FUNC_BUTTON_PIN);
+  if (rawState != lastRawState) {
+    lastDebounceTime = millis();
+    lastRawState = rawState;
+  }
+
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+    debouncedState = rawState;
+  }
+
+  bool isPressed = (debouncedState == LOW); // Active LOW button (BOOT)
 
   if (isPressed) {
     buttonIsBeingHeld = true;
