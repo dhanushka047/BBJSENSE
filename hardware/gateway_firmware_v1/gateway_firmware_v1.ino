@@ -470,6 +470,28 @@ void loop() {
     // Reset disconnect monitor
     disconnectStartMs = 0;
 
+    // Background RTC sync when NTP gets a valid timestamp
+    static bool rtcSyncedFromNTP = false;
+    if (!rtcSyncedFromNTP && !i2cError) {
+      time_t now = time(nullptr);
+      if (now > 1000000000) { // Check for valid time (year 2001+)
+        struct tm timeinfo;
+        gmtime_r(&now, &timeinfo);
+        IO_RTC_DateTime rtcTime;
+        rtcTime.year    = timeinfo.tm_year + 1900;
+        rtcTime.month   = timeinfo.tm_mon + 1;
+        rtcTime.day     = timeinfo.tm_mday;
+        rtcTime.weekday = timeinfo.tm_wday;
+        rtcTime.hour    = timeinfo.tm_hour;
+        rtcTime.minute  = timeinfo.tm_min;
+        rtcTime.second  = timeinfo.tm_sec;
+        if (rtc.setDateTime(rtcTime)) {
+          rtcSyncedFromNTP = true;
+          Serial.println("[TIME] PCF8563 RTC time successfully synced from NTP.");
+        }
+      }
+    }
+
     // Normal state is operational unless override by I2C fail-safe check
     if (!i2cError) {
       currentLedState = LED_OPERATIONAL;
@@ -781,35 +803,8 @@ void logI2CErrorEvent() {
 
 // Time configurations
 void initTimeTime() {
+  Serial.println("[TIME] Configuring NTP background time sync...");
   configTime(5.5 * 3600, 0, "pool.ntp.org", "time.nist.gov");
-  Serial.print("Syncing time with NTP...");
-  time_t now = time(nullptr);
-  int r = 0;
-  while (now < 8 * 3600 * 2 && r < 15) {
-    delay(500);
-    Serial.print(".");
-    now = time(nullptr);
-    r++;
-  }
-  
-  if (now > 8 * 3600 * 2) {
-    Serial.println("\n[OK] NTP time obtained.");
-    struct tm timeinfo;
-    gmtime_r(&now, &timeinfo);
-
-    IO_RTC_DateTime rtcTime;
-    rtcTime.year    = timeinfo.tm_year + 1900;
-    rtcTime.month   = timeinfo.tm_mon + 1;
-    rtcTime.day     = timeinfo.tm_mday;
-    rtcTime.weekday = timeinfo.tm_wday;
-    rtcTime.hour    = timeinfo.tm_hour;
-    rtcTime.minute  = timeinfo.tm_min;
-    rtcTime.second  = timeinfo.tm_sec;
-    
-    rtc.setDateTime(rtcTime);
-  } else {
-    Serial.println("\n[WARN] NTP Timeout. Relying on PCF8563 clock.");
-  }
 }
 
 String getISOTime() {
