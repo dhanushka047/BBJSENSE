@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AppLayout from "@/components/AppLayout";
 import { useEffect } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function generateUUID() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -31,6 +32,13 @@ const Devices = () => {
   const [wifiPassInput, setWifiPassInput] = useState("");
   const [apiUrlInput, setApiUrlInput] = useState("http://localhost:5001/api");
   const [bleLoading, setBleLoading] = useState(false);
+  const [wifiNetworks, setWifiNetworks] = useState<{ ssid: string; rssi: number }[]>([]);
+  const [scanningWifi, setScanningWifi] = useState(false);
+  const [bleConnection, setBleConnection] = useState<{
+    device: any;
+    gattServer: any;
+    characteristic: any;
+  } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const { user, role } = useAuth();
   const { toast } = useToast();
@@ -59,6 +67,18 @@ const Devices = () => {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [refetch]);
+
+  // Clean up BLE connection if dialog is closed
+  useEffect(() => {
+    if (!dialogOpen && bleConnection) {
+      try {
+        bleConnection.device.gatt.disconnect();
+      } catch (err) {}
+      setBleConnection(null);
+      setWifiNetworks([]);
+      setScanningWifi(false);
+    }
+  }, [dialogOpen, bleConnection]);
 
   const addDevice = useMutation({
     mutationFn: async () => {
@@ -93,15 +113,12 @@ const Devices = () => {
     },
   });
 
-  const handleBLEProvisioning = async () => {
-    if (!wifiSsidInput) {
-      toast({ title: "Validation Error", description: "Wi-Fi SSID is required for BLE configuration.", variant: "destructive" });
-      return;
-    }
-    
+  const handleBLEConnectAndScan = async () => {
     setBleLoading(true);
+    setScanningWifi(false);
+    setWifiNetworks([]);
     try {
-      toast({ title: "BLE Scan", description: "Requesting Bluetooth device..." });
+      toast({ title: "BLE Scan", description: "Searching for BBJSENSE-BLE or IOBuilds-BLE..." });
       
       const device = await navigator.bluetooth.requestDevice({
         filters: [
@@ -118,6 +135,8 @@ const Devices = () => {
       const service = await gattServer.getPrimaryService("12345678-1234-1234-1234-1234567890ab");
       const characteristic = await service.getCharacteristic("12345678-1234-1234-1234-1234567890ac");
       
+      setBleConnection({ device, gattServer, characteristic });
+      
       toast({ title: "Syncing status", description: "Reading device MAC address..." });
       const value = await characteristic.readValue();
       const statusStr = new TextDecoder().decode(value);
@@ -132,18 +151,92 @@ const Devices = () => {
         if (k === "I2C") i2cStatus = v;
       });
       
-      if (!macAddress) {
-        throw new Error("Failed to read MAC address from hardware device.");
+      if (macAddress) {
+        setMacInput(macAddress.toUpperCase());
       }
       
       if (i2cStatus === "fail") {
         toast({ title: "Hardware Warning", description: "Warning: Board reported I2C initialization failure!", variant: "destructive" });
       }
+
+      toast({ title: "Triggering Scan", description: "Requesting Wi-Fi site survey on ESP32..." });
+      const encoder = new TextEncoder();
+      await characteristic.writeValue(encoder.encode("SCAN"));
+      setScanningWifi(true);
+
+      let pollCount = 0;
+      const interval = setInterval(async () => {
+        pollCount++;
+        if (pollCount > 30) {
+          clearInterval(interval);
+          setScanningWifi(false);
+          setBleLoading(false);
+          toast({ title: "Scan Timeout", description: "Wi-Fi scan timed out on ESP32.", variant: "destructive" });
+          return;
+        }
+
+        try {
+          const val = await characteristic.readValue();
+          const readStr = new TextDecoder().decode(val);
+          console.log("BLE poll read:", readStr);
+
+          if (readStr.startsWith("NETWORKS:")) {
+            clearInterval(interval);
+            setScanningWifi(false);
+            setBleLoading(false);
+            
+            const netsStr = readStr.replace("NETWORKS:", "");
+            if (netsStr.trim().length === 0) {
+              toast({ title: "Scan Complete", description: "No Wi-Fi networks found by the device." });
+              return;
+            }
+            
+            const netsParts = netsStr.split(";");
+            const parsedNets = netsParts
+              .map(n => {
+                const [ssid, rssi] = n.split(",");
+                return { ssid, rssi: Number(rssi || -100) };
+              })
+              .filter(n => n.ssid && n.ssid.trim().length > 0);
+            
+            setWifiNetworks(parsedNets);
+            toast({ title: "Scan Complete", description: `Found ${parsedNets.length} networks!` });
+          } else if (readStr.startsWith("STATUS:scanning")) {
+            console.log("ESP32 still scanning...");
+          }
+        } catch (pollErr) {
+          console.error("Polling read error:", pollErr);
+        }
+      }, 1000);
       
+    } catch (err: any) {
+      console.error("BLE Connect/Scan error:", err);
+      setBleLoading(false);
+      setScanningWifi(false);
+      toast({ title: "Connection Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleBLEFinalConfigure = async () => {
+    let finalSsid = wifiSsidInput;
+    if (finalSsid === "custom-ssid-manual") {
+      toast({ title: "Validation Error", description: "Please enter custom SSID label.", variant: "destructive" });
+      return;
+    }
+    if (!finalSsid) {
+      toast({ title: "Validation Error", description: "Wi-Fi SSID is required.", variant: "destructive" });
+      return;
+    }
+    if (!bleConnection) {
+      toast({ title: "Error", description: "No active BLE connection found.", variant: "destructive" });
+      return;
+    }
+
+    setBleLoading(true);
+    try {
       const generatedUUID = generateUUID();
-      
       const configObj = {
-        ssid: wifiSsidInput,
+        ssid: finalSsid,
         pass: wifiPassInput,
         uuid: generatedUUID,
         api: apiUrlInput
@@ -152,14 +245,13 @@ const Devices = () => {
       toast({ title: "Configuring Device", description: "Writing network profiles over BLE..." });
       const encoder = new TextEncoder();
       const payloadBytes = encoder.encode(JSON.stringify(configObj));
-      await characteristic.writeValue(payloadBytes);
+      await bleConnection.characteristic.writeValue(payloadBytes);
       
       toast({ title: "Configured!", description: "Hardware configured. Registering with local server..." });
       
-      const mac = macAddress.trim().toUpperCase();
       const { data: newDevice, error } = await supabase.from("devices").insert({
         id: generatedUUID,
-        mac_address: mac,
+        mac_address: macInput.trim().toUpperCase(),
         name: nameInput.trim() || "BLE Provisioned Node",
         owner_id: user?.id,
       }).select("id").single();
@@ -169,9 +261,15 @@ const Devices = () => {
       await supabase.from("device_events").insert({
         device_id: generatedUUID,
         event_type: "info",
-        message: `Device provisioned and registered over BLE. MAC: ${mac}`,
+        message: `Device provisioned and registered over BLE. MAC: ${macInput.trim().toUpperCase()}`,
         triggered_by: user?.id,
       });
+
+      try {
+        await bleConnection.device.gatt.disconnect();
+      } catch (discErr) {
+        console.error("Error disconnecting BLE:", discErr);
+      }
 
       queryClient.invalidateQueries({ queryKey: ["devices"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-devices"] });
@@ -180,11 +278,13 @@ const Devices = () => {
       setNameInput("");
       setWifiSsidInput("");
       setWifiPassInput("");
+      setBleConnection(null);
+      setWifiNetworks([]);
       setDialogOpen(false);
       
       toast({ title: "Success!", description: "Gateway device provisioned, configured, and registered!" });
     } catch (err: any) {
-      console.error("BLE Provisioning error:", err);
+      console.error("BLE Final config error:", err);
       toast({ title: "Configuration Failed", description: err.message, variant: "destructive" });
     } finally {
       setBleLoading(false);
@@ -239,27 +339,80 @@ const Devices = () => {
                   <Label htmlFor="node-name">Device Name / Label</Label>
                   <Input id="node-name" placeholder="e.g. Pump Station A" value={nameInput} onChange={(e) => setNameInput(e.target.value)} className="h-10 bg-background border-border" />
                 </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="wifi-ssid">Wi-Fi SSID (Required for BLE Setup)</Label>
-                  <Input id="wifi-ssid" placeholder="Factory_SSID" value={wifiSsidInput} onChange={(e) => setWifiSsidInput(e.target.value)} className="h-10 bg-background border-border" />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="wifi-pass">Wi-Fi Password</Label>
-                  <Input id="wifi-pass" type="password" placeholder="SSID_Password" value={wifiPassInput} onChange={(e) => setWifiPassInput(e.target.value)} className="h-10 bg-background border-border" />
-                </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="api-url">Backend API Base URL</Label>
-                  <Input id="api-url" placeholder="http://localhost:5001/api" value={apiUrlInput} onChange={(e) => setApiUrlInput(e.target.value)} className="font-mono h-10 bg-background border-border" />
-                </div>
+                {scanningWifi && (
+                  <div className="flex flex-col items-center justify-center py-6 px-4 space-y-3 border border-dashed border-accent/20 rounded-lg bg-accent/5">
+                    <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm font-semibold text-accent animate-pulse">ESP32 scanning nearby networks...</span>
+                    <span className="text-xs text-muted-foreground text-center">Reading signal survey coordinates via BLE</span>
+                  </div>
+                )}
 
-                <Button variant="secondary" className="w-full h-10 border-border font-semibold bg-primary/10 text-primary hover:bg-primary/20" onClick={handleBLEProvisioning} disabled={bleLoading}>
-                  <ScanLine size={18} className="mr-2" /> {bleLoading ? "Configuring over BLE..." : "Configure & Add via BLE"}
-                </Button>
+                {wifiNetworks.length === 0 && !scanningWifi && (
+                  <div className="space-y-3">
+                    <Button variant="secondary" className="w-full h-10 border-border font-semibold bg-primary/10 text-primary hover:bg-primary/20" onClick={handleBLEConnectAndScan} disabled={bleLoading}>
+                      <ScanLine size={18} className="mr-2" /> {bleLoading ? "Initiating BLE Connection..." : "Connect & Scan Wi-Fi via BLE"}
+                    </Button>
+                  </div>
+                )}
 
-                <div className="relative">
+                {wifiNetworks.length > 0 && !scanningWifi && (
+                  <div className="space-y-4 border border-border/40 p-4 rounded-xl bg-muted/20">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">BLE Scanned Networks</span>
+                      <Button variant="link" size="sm" className="h-auto p-0 text-accent font-semibold flex items-center" onClick={handleBLEConnectAndScan} disabled={bleLoading}>
+                        Rescan Wi-Fi
+                      </Button>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="wifi-ssid-select">Select Wi-Fi Network</Label>
+                      <Select value={wifiSsidInput} onValueChange={(val) => setWifiSsidInput(val)}>
+                        <SelectTrigger className="h-10 bg-background border-border text-foreground">
+                          <SelectValue placeholder="Select network..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-card border-border">
+                          {wifiNetworks.map((net, idx) => (
+                            <SelectItem key={idx} value={net.ssid} className="text-foreground">
+                              {net.ssid} ({net.rssi} dBm)
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="custom-ssid-manual" className="text-foreground">-- Enter Custom SSID --</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {(wifiSsidInput === "custom-ssid-manual" || wifiSsidInput === "") && (
+                      <div className="space-y-2">
+                        <Label htmlFor="wifi-ssid-manual">Custom SSID</Label>
+                        <Input id="wifi-ssid-manual" placeholder="Enter SSID manually" value={wifiSsidInput === "custom-ssid-manual" ? "" : wifiSsidInput} onChange={(e) => setWifiSsidInput(e.target.value)} className="h-10 bg-background border-border" />
+                      </div>
+                    )}
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="wifi-pass">Wi-Fi Password</Label>
+                      <Input id="wifi-pass" type="password" placeholder="SSID_Password" value={wifiPassInput} onChange={(e) => setWifiPassInput(e.target.value)} className="h-10 bg-background border-border" />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="api-url">Backend API Base URL</Label>
+                      <Input id="api-url" placeholder="http://localhost:5001/api" value={apiUrlInput} onChange={(e) => setApiUrlInput(e.target.value)} className="font-mono h-10 bg-background border-border" />
+                    </div>
+
+                    {macInput && (
+                      <div className="space-y-2">
+                        <Label>Device MAC Address (Read via BLE)</Label>
+                        <Input value={macInput} disabled className="font-mono h-10 bg-muted text-muted-foreground opacity-80" />
+                      </div>
+                    )}
+
+                    <Button className="w-full h-10 gradient-brand text-primary-foreground font-semibold" onClick={handleBLEFinalConfigure} disabled={bleLoading}>
+                      {bleLoading ? "Provisioning Device..." : "Provision & Add Device"}
+                    </Button>
+                  </div>
+                )}
+
+                <div className="relative py-2">
                   <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
                   <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">or manual registry</span></div>
                 </div>

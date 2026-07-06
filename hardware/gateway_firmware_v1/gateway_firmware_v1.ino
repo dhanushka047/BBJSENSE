@@ -1,5 +1,5 @@
 /********************************************************************
- *  BBJSENSE Telemetry Gateway & Control Firmware v3.0
+ *  BBJSENSE Telemetry Gateway & Control Firmware v4.0
  *  Hardware: ESP32-S3 Custom PCB
  *  Developed by Dhanushka Udaya Kumara
  *
@@ -101,6 +101,11 @@ bool isBleMode = false;
 bool bleConnected = false;
 LedState currentLedState = LED_OFF;
 
+// Wi-Fi BLE Assisted Scanning Variables
+bool triggerScan = false;
+String scanStatus = "idle";
+String scanResults = "";
+
 // Timing Monitors
 unsigned long lastTelemetryMs = 0;
 unsigned long lastModbusMs = 0;
@@ -158,7 +163,16 @@ class MyCharacteristicCallbacks: public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pChar) override {
     String value = pChar->getValue();
     if (value.length() > 0) {
-      Serial.print("[BLE] Received configuration: ");
+      if (value == "SCAN") {
+        Serial.println("[BLE] Received Wi-Fi scan trigger request command.");
+        triggerScan = true;
+        scanStatus = "scanning";
+        scanResults = "";
+        pChar->setValue("STATUS:scanning");
+        return;
+      }
+
+      Serial.print("[BLE] Received configuration JSON: ");
       Serial.println(value);
       
       DynamicJsonDocument doc(1024);
@@ -182,6 +196,18 @@ class MyCharacteristicCallbacks: public BLECharacteristicCallbacks {
   }
 
   void onRead(BLECharacteristic *pChar) override {
+    if (scanStatus == "scanning") {
+      pChar->setValue("STATUS:scanning");
+      Serial.println("[BLE] Read Request during scan -> STATUS:scanning");
+      return;
+    }
+    
+    if (scanResults.length() > 0) {
+      pChar->setValue(scanResults.c_str());
+      Serial.printf("[BLE] Read Request survey results -> %s\n", scanResults.c_str());
+      return;
+    }
+
     String mac = WiFi.macAddress();
     String wifiStatus = (WiFi.status() == WL_CONNECTED) ? "connected" : "disconnected";
     String i2cStatus = i2cError ? "fail" : "ok";
@@ -288,7 +314,30 @@ void loop() {
   handleLEDAnimations();
 
   if (isBleMode) {
-    // BLE Configuration Mode active, do not perform telemetry logic.
+    // BLE Wi-Fi Site Survey trigger execution
+    if (triggerScan) {
+      Serial.println("[WIFI] BLE site survey requested. Scanning networks...");
+      WiFi.mode(WIFI_STA);
+      WiFi.disconnect();
+      
+      int n = WiFi.scanNetworks();
+      Serial.printf("[WIFI] Scanned %d networks\n", n);
+
+      String results = "NETWORKS:";
+      for (int i = 0; i < min(n, 12); i++) {
+        if (i > 0) results += ";";
+        results += WiFi.SSID(i) + "," + String(WiFi.RSSI(i));
+      }
+      
+      scanResults = results;
+      pCharacteristic->setValue(scanResults.c_str());
+      pCharacteristic->notify();
+      
+      scanStatus = "idle";
+      triggerScan = false;
+      Serial.println("[WIFI] Scan complete. BLE Characteristic loaded.");
+    }
+    
     delay(20);
     return;
   }
