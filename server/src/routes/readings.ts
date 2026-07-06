@@ -129,7 +129,8 @@ router.post("/", async (req: Request, res: Response) => {
 
     return res.status(201).json({
       ...reading,
-      wifi_max_disconnect_time: updatedDevice?.wifi_max_disconnect_time ?? 900
+      wifi_max_disconnect_time: updatedDevice?.wifi_max_disconnect_time ?? 900,
+      led_disabled: updatedDevice?.led_disabled ?? false
     });
   } catch (err: any) {
     console.error("Insert reading error:", err);

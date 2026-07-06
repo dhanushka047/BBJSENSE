@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -60,6 +61,7 @@ const DeviceConfig = () => {
   const [nickname, setNickname] = useState("");
   const [modbusAddr, setModbusAddr] = useState("0x01");
   const [wifiMaxDisconnectTime, setWifiMaxDisconnectTime] = useState(900);
+  const [ledDisabled, setLedDisabled] = useState(false);
 
   const { data: device } = useQuery({
     queryKey: ["device", id],
@@ -93,6 +95,7 @@ const DeviceConfig = () => {
       setNickname(device.nickname || "");
       setModbusAddr(device.modbus_address || "0x01");
       setWifiMaxDisconnectTime(device.wifi_max_disconnect_time ?? 900);
+      setLedDisabled(device.led_disabled ?? false);
     }
   }, [device]);
 
@@ -144,10 +147,15 @@ const DeviceConfig = () => {
 
   const saveConfig = useMutation({
     mutationFn: async () => {
-      // Save device nickname/modbus/wifi_max_disconnect_time
+      // Save device nickname/modbus/wifi_max_disconnect_time/led_disabled
       await supabase
         .from("devices")
-        .update({ nickname, modbus_address: modbusAddr, wifi_max_disconnect_time: Number(wifiMaxDisconnectTime) })
+        .update({ 
+          nickname, 
+          modbus_address: modbusAddr, 
+          wifi_max_disconnect_time: Number(wifiMaxDisconnectTime),
+          led_disabled: ledDisabled
+        })
         .eq("id", id!);
 
       // Upsert channel configs
@@ -244,6 +252,13 @@ const DeviceConfig = () => {
                   <span className={`w-1.5 h-1.5 rounded-full ${device?.is_online ? "bg-accent channel-pulse" : "bg-muted-foreground"}`} />
                   {device?.is_online ? "Online" : "Offline"}
                 </span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Status LED Mode</Label>
+              <div className="flex items-center justify-between h-10 px-3 rounded-md border border-border bg-background">
+                <span className="text-xs text-foreground font-semibold">Enable Board LED Indications</span>
+                <Switch checked={!ledDisabled} onCheckedChange={(checked) => setLedDisabled(!checked)} />
               </div>
             </div>
           </CardContent>

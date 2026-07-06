@@ -56,7 +56,8 @@ model Device {
   last_seen_at    DateTime?
   modbus_address  String?               @default("0x01")
   wifi_max_disconnect_time Int           @default(900)
-  created_at      DateTime              @default(now())
+  led_disabled             Boolean       @default(false)
+  created_at               DateTime      @default(now())
   updated_at      DateTime              @updatedAt
   owner           User?                 @relation("device_owner", fields: [owner_id], references: [id], onDelete: SetNull)
   approver        User?                 @relation("device_approver", fields: [approved_by], references: [id], onDelete: SetNull)

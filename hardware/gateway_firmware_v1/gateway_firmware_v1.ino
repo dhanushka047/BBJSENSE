@@ -1,5 +1,5 @@
 /********************************************************************
- *  BBJSENSE Telemetry Gateway & Control Firmware v2.0
+ *  BBJSENSE Telemetry Gateway & Control Firmware v3.0
  *  Hardware: ESP32-S3 Custom PCB
  *  Developed by Dhanushka Udaya Kumara
  *
@@ -7,7 +7,7 @@
  *  - I2C: SDA=GPIO22, SCL=GPIO21 (ADS1115 & PCF8563)
  *  - Digital Inputs (Optocouplers): DIN1=34, DIN2=35, DIN3=14, DIN4=12 (Active LOW)
  *  - Relay Outputs (Digital Out): RELAY1=36, RELAY2=32, RELAY3=27, RELAY4=25 (Active HIGH)
- *  - WS2812 RGB LED (NeoPixel): Pin 4 (Disabled/Dark)
+ *  - WS2812 RGB LED (NeoPixel): Pin 4 (State Indicator / Dashboard controllable)
  *  - TX Status LED: Pin 13
  *  - RS485 (Serial1): TX=2, RX=15, DIR=33 (DE + /RE direction)
  *  - SPI Flash (W25Q64JV): CS=5, CLK=18, MISO=19, MOSI=23
@@ -60,6 +60,17 @@
 // Size limit for flash logging (use first 4MB of the 8MB flash)
 const uint32_t FLASH_MAX_SIZE = 4 * 1024 * 1024;
 
+// LED states
+enum LedState {
+  LED_OFF,
+  LED_WIFI_CONNECTING, // blinking blue
+  LED_BLE_MODE,        // blinking yellow
+  LED_OPERATIONAL,     // solid green
+  LED_HTTP_ERROR,      // blinking red
+  LED_I2C_ERROR,       // blinking magenta
+  LED_OFFLINE_LOGGING  // solid orange/yellow
+};
+
 // Hardware Instances
 Adafruit_NeoPixel statusLED(1, WS_PIN, NEO_GRB + NEO_KHZ800);
 ADS1115 adc(ADS1115::ADDR_GND);
@@ -77,6 +88,7 @@ String wifiPass = "";
 String deviceUUID = "";
 String apiBaseUrl = "http://192.168.1.100:5001/api"; // Default fallback
 uint32_t wifiMaxDisconnectTime = 900; // Default 15 mins (900 seconds)
+bool ledDisabled = false;
 
 // Flash Circular Buffer Pointers
 uint32_t flashWritePtr = 0;
@@ -87,6 +99,7 @@ bool i2cError = false;
 bool i2cEventSent = false;
 bool isBleMode = false;
 bool bleConnected = false;
+LedState currentLedState = LED_OFF;
 
 // Timing Monitors
 unsigned long lastTelemetryMs = 0;
@@ -125,6 +138,8 @@ void initTimeTime();
 String getISOTime();
 void checkI2CBus();
 void logI2CErrorEvent();
+void handleLEDAnimations();
+void setLEDColor(uint8_t r, uint8_t g, uint8_t b);
 
 // BLE Callbacks
 class MyServerCallbacks: public BLEServerCallbacks {
@@ -205,8 +220,9 @@ void setup() {
   pinMode(RS485_DIR, OUTPUT);
   digitalWrite(RS485_DIR, LOW);
 
-  // Turn off NeoPixel WS2812 status LED completely
+  // WS2812 status LED
   statusLED.begin();
+  statusLED.setBrightness(150);
   statusLED.clear();
   statusLED.show();
 
@@ -234,8 +250,10 @@ void setup() {
     WiFi.mode(WIFI_STA);
     WiFi.begin(wifiSSID.c_str(), wifiPass.c_str());
 
+    currentLedState = LED_WIFI_CONNECTING;
     int retries = 0;
     while (WiFi.status() != WL_CONNECTED && retries < 30) {
+      handleLEDAnimations();
       delay(500);
       Serial.print(".");
       retries++;
@@ -246,6 +264,9 @@ void setup() {
       Serial.print("IP Address: ");
       Serial.println(WiFi.localIP());
       
+      currentLedState = LED_OPERATIONAL;
+      handleLEDAnimations();
+
       initTimeTime();
       syncConfiguration();
       
@@ -263,6 +284,9 @@ void setup() {
 }
 
 void loop() {
+  // Update LED continuous animations
+  handleLEDAnimations();
+
   if (isBleMode) {
     // BLE Configuration Mode active, do not perform telemetry logic.
     delay(20);
@@ -275,6 +299,11 @@ void loop() {
   if (WiFi.status() == WL_CONNECTED) {
     // Reset disconnect monitor
     disconnectStartMs = 0;
+
+    // Normal state is operational unless override by I2C fail-safe check
+    if (!i2cError) {
+      currentLedState = LED_OPERATIONAL;
+    }
 
     // 1. Sync any telemetry records logged offline to flash
     syncOfflineFlashLogs();
@@ -298,6 +327,8 @@ void loop() {
     }
   } else {
     // Wi-Fi Disconnected State
+    currentLedState = LED_OFFLINE_LOGGING;
+
     if (disconnectStartMs == 0) {
       disconnectStartMs = currentMs;
       Serial.println("[WARN] Wi-Fi link lost. Monitoring timeout...");
@@ -366,9 +397,89 @@ void loop() {
   }
 }
 
+void setLEDColor(uint8_t r, uint8_t g, uint8_t b) {
+  statusLED.setPixelColor(0, statusLED.Color(r, g, b));
+  statusLED.show();
+}
+
+void handleLEDAnimations() {
+  if (ledDisabled) {
+    statusLED.clear();
+    statusLED.show();
+    return;
+  }
+
+  static unsigned long lastBlinkMs = 0;
+  static bool blinkOn = false;
+  unsigned long now = millis();
+
+  // Highlight critical I2C sensor bus errors first
+  if (i2cError && !isBleMode) {
+    currentLedState = LED_I2C_ERROR;
+  }
+
+  if (now - lastBlinkMs >= 500) {
+    lastBlinkMs = now;
+    blinkOn = !blinkOn;
+  }
+
+  switch (currentLedState) {
+    case LED_OFF:
+      statusLED.clear();
+      statusLED.show();
+      break;
+
+    case LED_WIFI_CONNECTING:
+      if (blinkOn) {
+        setLEDColor(0, 0, 150); // Blue
+      } else {
+        statusLED.clear();
+        statusLED.show();
+      }
+      break;
+
+    case LED_BLE_MODE:
+      if (blinkOn) {
+        setLEDColor(120, 100, 0); // Yellow
+      } else {
+        statusLED.clear();
+        statusLED.show();
+      }
+      break;
+
+    case LED_OPERATIONAL:
+      setLEDColor(0, 120, 0); // Green
+      break;
+
+    case LED_HTTP_ERROR:
+      if (blinkOn) {
+        setLEDColor(150, 0, 0); // Red
+      } else {
+        statusLED.clear();
+        statusLED.show();
+      }
+      break;
+
+    case LED_I2C_ERROR:
+      if (blinkOn) {
+        setLEDColor(120, 0, 120); // Magenta (Purple)
+      } else {
+        statusLED.clear();
+        statusLED.show();
+      }
+      break;
+
+    case LED_OFFLINE_LOGGING:
+      setLEDColor(150, 60, 0); // Orange / Yellow
+      break;
+  }
+}
+
 // Start BLE Provisioning Server
 void startBLEConfig() {
   isBleMode = true;
+  currentLedState = LED_BLE_MODE;
+  
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
   
@@ -413,6 +524,7 @@ void loadConfig() {
   deviceUUID = prefs.getString("uuid", "");
   apiBaseUrl = prefs.getString("api", "http://192.168.1.100:5001/api");
   wifiMaxDisconnectTime = prefs.getUInt("wifiTimeout", 900);
+  ledDisabled = prefs.getBool("ledDisable", false);
   
   // Flash circular logging pointers
   flashWritePtr = prefs.getUInt("flashWrite", 0);
@@ -424,6 +536,7 @@ void loadConfig() {
   Serial.print("  Device UUID: "); Serial.println(deviceUUID);
   Serial.print("  API Base: "); Serial.println(apiBaseUrl);
   Serial.printf("  Max Disconnect Timeout: %d seconds\n", wifiMaxDisconnectTime);
+  Serial.printf("  Status LED Disabled: %s\n", ledDisabled ? "true" : "false");
   Serial.printf("  Flash Pointers -> Write: %d, Read: %d\n", flashWritePtr, flashReadPtr);
 }
 
@@ -720,6 +833,11 @@ void processTelemetry() {
 
   int httpCode = http.POST(jsonOutput);
   if (httpCode == 201) {
+    // Normal operation
+    if (!i2cError) {
+      currentLedState = LED_OPERATIONAL;
+    }
+    
     String payload = http.getString();
     DynamicJsonDocument rxDoc(2048);
     DeserializationError error = deserializeJson(rxDoc, payload);
@@ -752,7 +870,22 @@ void processTelemetry() {
           Serial.printf("[CONFIG] Updated max Wi-Fi disconnect timeout to %d seconds.\n", wifiMaxDisconnectTime);
         }
       }
+
+      // Sync LED disabled override
+      if (rxDoc.containsKey("led_disabled")) {
+        bool serverLedDisabled = rxDoc["led_disabled"].as<bool>();
+        if (serverLedDisabled != ledDisabled) {
+          ledDisabled = serverLedDisabled;
+          prefs.begin("gateway", false);
+          prefs.putBool("ledDisable", ledDisabled);
+          prefs.end();
+          Serial.printf("[CONFIG] Updated ledDisabled state to %s.\n", ledDisabled ? "true" : "false");
+        }
+      }
     }
+  } else {
+    Serial.printf("[ERROR] Telemetry push HTTP error: %d\n", httpCode);
+    currentLedState = LED_HTTP_ERROR;
   }
   http.end();
 

@@ -68,7 +68,7 @@ router.get("/:id", authenticateToken, async (req: AuthRequest, res: Response) =>
 
 // POST /api/devices - Register new device
 router.post("/", authenticateToken, async (req: AuthRequest, res: Response) => {
-  const { mac_address, name, nickname, modbus_address, wifi_max_disconnect_time } = req.body;
+  const { mac_address, name, nickname, modbus_address, wifi_max_disconnect_time, led_disabled } = req.body;
 
   if (!mac_address) {
     return res.status(400).json({ error: "MAC address is required" });
@@ -89,6 +89,7 @@ router.post("/", authenticateToken, async (req: AuthRequest, res: Response) => {
         owner_id: req.user?.id,
         modbus_address: modbus_address || "0x01",
         wifi_max_disconnect_time: wifi_max_disconnect_time !== undefined ? Number(wifi_max_disconnect_time) : 900,
+        led_disabled: led_disabled !== undefined ? Boolean(led_disabled) : false,
         approval_status: "pending", // Requires admin approval
       },
     });
@@ -106,7 +107,7 @@ router.post("/", authenticateToken, async (req: AuthRequest, res: Response) => {
 // PUT /api/devices/:id - Update device
 router.put("/:id", authenticateToken, async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const { name, nickname, is_online, approval_status, modbus_address, last_seen_at, wifi_max_disconnect_time } = req.body;
+  const { name, nickname, is_online, approval_status, modbus_address, last_seen_at, wifi_max_disconnect_time, led_disabled } = req.body;
 
   try {
     const existing = await prisma.device.findUnique({ where: { id } });
@@ -129,6 +130,7 @@ router.put("/:id", authenticateToken, async (req: AuthRequest, res: Response) =>
     if (is_online !== undefined) updateData.is_online = Boolean(is_online);
     if (last_seen_at !== undefined) updateData.last_seen_at = new Date(last_seen_at);
     if (wifi_max_disconnect_time !== undefined) updateData.wifi_max_disconnect_time = Number(wifi_max_disconnect_time);
+    if (led_disabled !== undefined) updateData.led_disabled = Boolean(led_disabled);
 
     // Only admins can approve/reject
     if (approval_status !== undefined) {
