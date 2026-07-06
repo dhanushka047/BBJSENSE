@@ -17,6 +17,7 @@
 #define NUMPIXELS 1
 
 Adafruit_NeoPixel statusLED(NUMPIXELS, WS_PIN, NEO_GRB + NEO_KHZ800);
+bool buttonPressedState = LOW; // Auto-detected on boot
 
 void setLEDColor(uint8_t r, uint8_t g, uint8_t b) {
   statusLED.setPixelColor(0, statusLED.Color(r, g, b));
@@ -29,9 +30,23 @@ void setup() {
   Serial.println("\n=== BBJSENSE Function Button Test ===");
   Serial.printf("Configuring Pin %d as INPUT.\n", FUNC_BUTTON_PIN);
   
-  // Note: GPIO 39 is input-only and lacks internal pullup. 
-  // It relies on an external pullup resistor on the custom PCB.
   pinMode(FUNC_BUTTON_PIN, INPUT);
+
+  // Auto-detect idle state on boot to determine active level (polarity)
+  int idleSum = 0;
+  for (int i = 0; i < 15; i++) {
+    idleSum += digitalRead(FUNC_BUTTON_PIN);
+    delay(20);
+  }
+  // If mostly HIGH at boot, button is active-LOW (pressed = LOW)
+  // If mostly LOW at boot, button is active-HIGH (pressed = HIGH)
+  if (idleSum > 7) {
+    buttonPressedState = LOW;
+    Serial.println("[BUTTON] Detected Active-LOW polarity (unpressed = HIGH).");
+  } else {
+    buttonPressedState = HIGH;
+    Serial.println("[BUTTON] Detected Active-HIGH polarity (unpressed = LOW).");
+  }
 
   statusLED.begin();
   statusLED.clear();
@@ -60,8 +75,8 @@ void loop() {
     debouncedState = rawState;
   }
 
-  // Read button state (Assuming active-LOW configuration)
-  bool isPressed = (debouncedState == LOW);
+  // Read button state using detected polarity
+  bool isPressed = (debouncedState == buttonPressedState);
 
   if (isPressed) {
     if (!wasPressed) {
@@ -100,7 +115,7 @@ void loop() {
         Serial.println("[SYSTEM] Reset trigger simulation successful! Release button to restart test.");
         
         // Block until button released to avoid repeat triggers
-        while (digitalRead(FUNC_BUTTON_PIN) == LOW) {
+        while (digitalRead(FUNC_BUTTON_PIN) == buttonPressedState) {
           setLEDColor(0, 255, 0); // Solid green while waiting for release
           delay(10);
         }

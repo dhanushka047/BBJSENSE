@@ -239,6 +239,7 @@ struct ChannelConfig {
 };
 ChannelConfig analogConfigs[4];
 bool buttonIsBeingHeld = false;
+bool buttonPressedState = LOW; // Auto-detected on boot
 bool relayStates[4] = {false, false, false, false};
 
 // Function declarations
@@ -351,7 +352,21 @@ void setup() {
   pinMode(DIN2, INPUT);
   pinMode(DIN3, INPUT);
   pinMode(DIN4, INPUT);
-  pinMode(FUNC_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(FUNC_BUTTON_PIN, INPUT);
+
+  // Auto-detect idle state on boot to determine active level (polarity)
+  int idleSum = 0;
+  for (int i = 0; i < 15; i++) {
+    idleSum += digitalRead(FUNC_BUTTON_PIN);
+    delay(20);
+  }
+  if (idleSum > 7) {
+    buttonPressedState = LOW;
+    Serial.println("[BUTTON] Detected Active-LOW polarity (unpressed = HIGH).");
+  } else {
+    buttonPressedState = HIGH;
+    Serial.println("[BUTTON] Detected Active-HIGH polarity (unpressed = LOW).");
+  }
 
   // Relay Outputs
 #if !defined(CONFIG_IDF_TARGET_ESP32S3)
@@ -1400,7 +1415,7 @@ void checkFunctionButton() {
     debouncedState = rawState;
   }
 
-  bool isPressed = (debouncedState == LOW); // Active LOW button (BOOT)
+  bool isPressed = (debouncedState == buttonPressedState); // Match detected polarity
 
   if (isPressed) {
     buttonIsBeingHeld = true;
