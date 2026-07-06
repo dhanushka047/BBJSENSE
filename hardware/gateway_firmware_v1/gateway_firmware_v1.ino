@@ -16,6 +16,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
+#include <NetworkClientSecure.h>
 #include <ArduinoJson.h>
 #include <Adafruit_NeoPixel.h>
 #include <Wire.h>
@@ -781,9 +782,11 @@ void checkI2CBus() {
 void logI2CErrorEvent() {
   if (WiFi.status() != WL_CONNECTED || deviceUUID.length() == 0 || i2cEventSent) return;
 
+  NetworkClientSecure client;
+  client.setInsecure();
   HTTPClient http;
   String eventUrl = apiBaseUrl + "/device-events";
-  http.begin(eventUrl);
+  http.begin(client, eventUrl);
   http.addHeader("Content-Type", "application/json");
 
   DynamicJsonDocument doc(512);
@@ -873,9 +876,11 @@ void syncConfiguration() {
   if (WiFi.status() != WL_CONNECTED || deviceUUID.length() == 0) return;
 
   Serial.println("[HTTP] Fetching channel configuration from server...");
+  NetworkClientSecure client;
+  client.setInsecure();
   HTTPClient http;
   String syncUrl = apiBaseUrl + "/device-channel-config?device_id=" + deviceUUID;
-  http.begin(syncUrl);
+  http.begin(client, syncUrl);
 
   const char* headerKeys[] = {"Date"};
   http.collectHeaders(headerKeys, 1);
@@ -971,8 +976,10 @@ void syncOfflineFlashLogs() {
       break;
     }
 
+    NetworkClientSecure client;
+    client.setInsecure();
     HTTPClient http;
-    http.begin(apiBaseUrl + "/device-readings");
+    http.begin(client, apiBaseUrl + "/device-readings");
     http.addHeader("Content-Type", "application/json");
 
     int httpCode = http.POST(logPayload);
@@ -1044,9 +1051,11 @@ void processTelemetry() {
 
   txDoc["rtc_time"] = getISOTime();
 
+  NetworkClientSecure client;
+  client.setInsecure();
   HTTPClient http;
   String telemetryUrl = apiBaseUrl + "/device-readings";
-  http.begin(telemetryUrl);
+  http.begin(client, telemetryUrl);
   http.addHeader("Content-Type", "application/json");
 
   const char* headerKeys[] = {"Date"};
@@ -1131,10 +1140,12 @@ void processTelemetry() {
 void processModbus() {
   if (WiFi.status() != WL_CONNECTED || deviceUUID.length() == 0) return;
 
+  NetworkClientSecure client;
+  client.setInsecure();
   HTTPClient http;
   
   String devicesUrl = apiBaseUrl + "/modbus/devices?device_id=" + deviceUUID;
-  http.begin(devicesUrl);
+  http.begin(client, devicesUrl);
   
   int devicesHttpCode = http.GET();
   if (devicesHttpCode != 200) {
@@ -1200,8 +1211,10 @@ void processModbus() {
         float rawVal = parseModbusValue(responseBuffer, dataType);
         float scaledVal = rawVal * scale;
 
+        NetworkClientSecure postClient;
+        postClient.setInsecure();
         HTTPClient postHttp;
-        postHttp.begin(apiBaseUrl + "/modbus/readings");
+        postHttp.begin(postClient, apiBaseUrl + "/modbus/readings");
         postHttp.addHeader("Content-Type", "application/json");
 
         DynamicJsonDocument modbusTx(1024);
