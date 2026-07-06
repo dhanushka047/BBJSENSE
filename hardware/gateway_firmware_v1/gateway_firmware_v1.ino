@@ -36,7 +36,7 @@
 #define DIN2 35
 #define DIN3 14
 #define DIN4 12
-#define FUNC_BUTTON_PIN 0
+#define FUNC_BUTTON_PIN 39
 
 #define RELAY1 36
 #define RELAY2 32
