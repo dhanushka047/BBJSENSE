@@ -347,11 +347,18 @@ void setup() {
   pinMode(DIN4, INPUT);
 
   // Relay Outputs
+#if !defined(CONFIG_IDF_TARGET_ESP32S3)
+  if (RELAY1 != 34 && RELAY1 != 35 && RELAY1 != 36 && RELAY1 != 39) {
+    pinMode(RELAY1, OUTPUT);
+    digitalWrite(RELAY1, LOW);
+  }
+#else
   pinMode(RELAY1, OUTPUT);
+  digitalWrite(RELAY1, LOW);
+#endif
   pinMode(RELAY2, OUTPUT);
   pinMode(RELAY3, OUTPUT);
   pinMode(RELAY4, OUTPUT);
-  digitalWrite(RELAY1, LOW);
   digitalWrite(RELAY2, LOW);
   digitalWrite(RELAY3, LOW);
   digitalWrite(RELAY4, LOW);
@@ -1005,7 +1012,13 @@ void processTelemetry() {
     if (!error) {
       if (rxDoc.containsKey("digital_out1")) {
         relayStates[0] = rxDoc["digital_out1"].as<bool>();
+#if !defined(CONFIG_IDF_TARGET_ESP32S3)
+        if (RELAY1 != 34 && RELAY1 != 35 && RELAY1 != 36 && RELAY1 != 39) {
+          digitalWrite(RELAY1, relayStates[0] ? HIGH : LOW);
+        }
+#else
         digitalWrite(RELAY1, relayStates[0] ? HIGH : LOW);
+#endif
       }
       if (rxDoc.containsKey("digital_out2")) {
         relayStates[1] = rxDoc["digital_out2"].as<bool>();
