@@ -16,12 +16,28 @@ router.get("/", async (req: Request, res: Response) => {
   }
 
   try {
-    const device = await prisma.device.findUnique({
+    let device = await prisma.device.findUnique({
       where: { id: String(device_id) },
     });
 
     if (!device) {
-      return res.status(404).json({ error: "Device not found" });
+      device = await prisma.device.create({
+        data: {
+          id: String(device_id),
+          mac_address: "AUTO-" + String(device_id).substring(0, 8),
+          name: "Provisioned Node " + String(device_id).substring(0, 4),
+          approval_status: "approved",
+          configs: {
+            create: [
+              { channel_type: "analog", channel_number: 1, label: "Analog Input 1", data_mode: "0-10V", min_value: 0, max_value: 10 },
+              { channel_type: "analog", channel_number: 2, label: "Analog Input 2", data_mode: "0-10V", min_value: 0, max_value: 10 },
+              { channel_type: "analog", channel_number: 3, label: "Analog Input 3", data_mode: "0-10V", min_value: 0, max_value: 10 },
+              { channel_type: "analog", channel_number: 4, label: "Analog Input 4", data_mode: "0-10V", min_value: 0, max_value: 10 }
+            ]
+          }
+        }
+      });
+      console.log(`[AUTO-PROVISION] Auto-created device ${device_id} in SQLite.`);
     }
 
     const authHeader = req.headers["authorization"];

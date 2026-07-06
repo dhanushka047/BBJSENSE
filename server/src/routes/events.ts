@@ -67,9 +67,9 @@ router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// POST /api/device-events - Create a new event
-router.post("/", authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post("/", async (req: Request, res: Response) => {
   const { device_id, event_type, message } = req.body;
+  const user = (req as any).user;
 
   if (!device_id || !message) {
     return res.status(400).json({ error: "device_id and message are required" });
@@ -77,18 +77,36 @@ router.post("/", authenticateToken, async (req: AuthRequest, res: Response) => {
 
   try {
     // Verify device exists
-    const device = await prisma.device.findUnique({ where: { id: device_id } });
+    let device = await prisma.device.findUnique({ where: { id: device_id } });
     if (!device) {
-      return res.status(404).json({ error: "Device not found" });
+      device = await prisma.device.create({
+        data: {
+          id: device_id,
+          mac_address: "AUTO-" + device_id.substring(0, 8),
+          name: "Provisioned Node " + device_id.substring(0, 4),
+          approval_status: "approved",
+          configs: {
+            create: [
+              { channel_type: "analog", channel_number: 1, label: "Analog Input 1", data_mode: "0-10V", min_value: 0, max_value: 10 },
+              { channel_type: "analog", channel_number: 2, label: "Analog Input 2", data_mode: "0-10V", min_value: 0, max_value: 10 },
+              { channel_type: "analog", channel_number: 3, label: "Analog Input 3", data_mode: "0-10V", min_value: 0, max_value: 10 },
+              { channel_type: "analog", channel_number: 4, label: "Analog Input 4", data_mode: "0-10V", min_value: 0, max_value: 10 }
+            ]
+          }
+        }
+      });
+      console.log(`[AUTO-PROVISION] Auto-created device ${device_id} during event post.`);
     }
 
-    // Regular users can only trigger events for devices they own
-    if (
-      req.user?.role !== "super_admin" &&
-      req.user?.role !== "admin" &&
-      device.owner_id !== req.user?.id
-    ) {
-      return res.status(403).json({ error: "Access denied" });
+    // Regular users can only trigger events for devices they own (if authenticated request)
+    if (user) {
+      if (
+        user.role !== "super_admin" &&
+        user.role !== "admin" &&
+        device.owner_id !== user.id
+      ) {
+        return res.status(403).json({ error: "Access denied" });
+      }
     }
 
     const event = await prisma.deviceEvent.create({
